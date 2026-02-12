@@ -66,5 +66,5 @@ export const POST = async (_request: NextRequest, { params }: RouteParams) => {
     return errorResponse(MESSAGES.unexpectedError, 500);
   }
 
-  return successResponse({ results });
+  return successResponse(updated);
 };
