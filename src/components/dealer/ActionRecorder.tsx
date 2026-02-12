@@ -10,7 +10,7 @@ import type {
   ApiResponse,
   AddActionResponse,
 } from "@/types";
-import { STREETS, ACTION_TYPES } from "@/types";
+import { STREETS } from "@/types";
 import { ACTION_DISPLAY_MAP } from "@/constants/poker";
 import { STREET_LABELS } from "@/constants/ui";
 import PlayerActionRow from "./PlayerActionRow";
@@ -23,7 +23,9 @@ type ActionRecorderProps = {
   readonly onUpdate: () => void;
 };
 
-const ACTIONS_WITH_AMOUNT: readonly ActionType[] = ["bet", "raise", "all-in"];
+function hasOutstandingBet(actions: readonly Action[], street: Street): boolean {
+  return actions.some((a) => a.street === street && a.type === "raise");
+}
 
 export default function ActionRecorder({
   sessionId,
@@ -38,7 +40,6 @@ export default function ActionRecorder({
   const [error, setError] = useState<string | null>(null);
   const [activeStreetTab, setActiveStreetTab] = useState<Street>(hand.currentStreet);
 
-  // フォールド済みプレイヤーのIDセット
   const foldedPlayerIds = useMemo(() => {
     const folded = new Set<string>();
     for (const action of hand.actions) {
@@ -49,7 +50,19 @@ export default function ActionRecorder({
     return folded;
   }, [hand.actions]);
 
-  const needsAmount = selectedAction !== null && ACTIONS_WITH_AMOUNT.includes(selectedAction);
+  const betExists = useMemo(
+    () => hasOutstandingBet(hand.actions, hand.currentStreet),
+    [hand.actions, hand.currentStreet]
+  );
+
+  const availableActions = useMemo((): readonly ActionType[] => {
+    if (betExists) {
+      return ["fold", "call", "raise"] as const;
+    }
+    return ["fold", "check", "raise"] as const;
+  }, [betExists]);
+
+  const needsAmount = selectedAction === "raise";
 
   const handleSubmitAction = async () => {
     if (!selectedPlayerId || !selectedAction) return;
@@ -78,7 +91,6 @@ export default function ActionRecorder({
         return;
       }
 
-      // リセット
       setSelectedPlayerId(null);
       setSelectedAction(null);
       setAmount("");
@@ -90,7 +102,6 @@ export default function ActionRecorder({
     }
   };
 
-  // ストリートごとのアクション
   const streetActions = useMemo(() => {
     const grouped: Partial<Record<Street, readonly Action[]>> = {};
     for (const street of STREETS) {
@@ -134,7 +145,7 @@ export default function ActionRecorder({
         street={activeStreetTab}
       />
 
-      {/* アクション入力エリア（現在のストリートタブが現在のストリートの場合のみ） */}
+      {/* アクション入力エリア（現在のストリートの場合のみ） */}
       {activeStreetTab === hand.currentStreet && !hand.isComplete && (
         <div className="flex flex-col gap-3 rounded-xl border-2 border-poker-gold/30 bg-poker-gold/5 p-4">
           <h4 className="font-bold text-gray-800">アクション記録</h4>
@@ -162,13 +173,13 @@ export default function ActionRecorder({
             <div>
               <p className="mb-1.5 text-xs font-medium text-gray-600">アクションを選択</p>
               <div className="grid grid-cols-3 gap-2">
-                {ACTION_TYPES.map((action) => (
+                {availableActions.map((action) => (
                   <button
                     key={action}
                     type="button"
                     onClick={() => {
                       setSelectedAction(action);
-                      if (!ACTIONS_WITH_AMOUNT.includes(action)) {
+                      if (action !== "raise") {
                         setAmount("");
                       }
                     }}
@@ -185,7 +196,7 @@ export default function ActionRecorder({
             </div>
           )}
 
-          {/* 金額入力 */}
+          {/* 金額入力（レイズ時のみ） */}
           {needsAmount && (
             <div>
               <label htmlFor="action-amount" className="mb-1 block text-xs font-medium text-gray-600">

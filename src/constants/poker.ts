@@ -21,7 +21,5 @@ export const ACTION_DISPLAY_MAP: Readonly<Record<ActionType, string>> = {
   fold: "フォールド",
   check: "チェック",
   call: "コール",
-  bet: "ベット",
   raise: "レイズ",
-  "all-in": "オールイン",
 } as const;

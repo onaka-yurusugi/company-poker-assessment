@@ -21,19 +21,19 @@ export const calculatePokerStats = (playerId: string, hands: readonly Hand[]): P
     // プリフロップアクション分析
     const preflopActions = playerActions.filter((a) => a.street === "preflop");
     const hasPreflopVoluntary = preflopActions.some(
-      (a) => a.type === "call" || a.type === "bet" || a.type === "raise" || a.type === "all-in"
+      (a) => a.type === "call" || a.type === "raise"
     );
     if (hasPreflopVoluntary) preflopVoluntaryActions++;
 
     const hasPreflopRaise = preflopActions.some(
-      (a) => a.type === "raise" || a.type === "bet"
+      (a) => a.type === "raise"
     );
     if (hasPreflopRaise) preflopRaises++;
 
     // 全ストリートアクション集計
     for (const action of playerActions) {
       totalActions++;
-      if (action.type === "bet" || action.type === "raise" || action.type === "all-in") {
+      if (action.type === "raise") {
         totalBetsAndRaises++;
       }
       if (action.type === "call") {
@@ -53,7 +53,7 @@ export const calculatePokerStats = (playerId: string, hands: readonly Hand[]): P
         if (
           firstFlopAction &&
           firstFlopAction.playerId === playerId &&
-          (firstFlopAction.type === "bet" || firstFlopAction.type === "raise")
+          firstFlopAction.type === "raise"
         ) {
           cbetMade++;
         }

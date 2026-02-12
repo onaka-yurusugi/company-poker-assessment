@@ -45,11 +45,9 @@ export default function HandTimeline({ actions, players, street }: HandTimelineP
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                 isFold
                   ? "bg-gray-200 text-gray-500"
-                  : action.type === "all-in"
-                    ? "bg-danger/10 text-danger"
-                    : action.type === "raise" || action.type === "bet"
-                      ? "bg-poker-gold/10 text-poker-gold"
-                      : "bg-primary/10 text-primary"
+                  : action.type === "raise"
+                    ? "bg-poker-gold/10 text-poker-gold"
+                    : "bg-primary/10 text-primary"
               }`}
             >
               {ACTION_DISPLAY_MAP[action.type]}

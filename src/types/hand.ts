@@ -3,7 +3,7 @@ import type { Card } from "./card";
 export const STREETS = ["preflop", "flop", "turn", "river"] as const;
 export type Street = (typeof STREETS)[number];
 
-export const ACTION_TYPES = ["fold", "check", "call", "bet", "raise", "all-in"] as const;
+export const ACTION_TYPES = ["fold", "check", "call", "raise"] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
 
 export type Action = {
