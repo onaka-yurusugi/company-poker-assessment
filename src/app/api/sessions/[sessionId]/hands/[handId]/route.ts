@@ -41,7 +41,9 @@ export const PUT = async (request: NextRequest, { params }: RouteParams) => {
   }
 
   const updated = updateHand(sessionId, handId, {
-    communityCards: body.communityCards,
+    communityCards: body.communityCards
+      ? [...hand.communityCards, ...body.communityCards]
+      : undefined,
     currentStreet: body.currentStreet,
     isComplete: body.isComplete,
     pot: body.pot,

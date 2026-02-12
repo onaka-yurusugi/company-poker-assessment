@@ -68,14 +68,13 @@ export default function CommunityCardInput({ sessionId, hand, onUpdate }: Commun
     if (!nextStreet) return;
 
     try {
-      const allCommunityCards = [...hand.communityCards, ...pendingCards];
       const res = await fetch(
         `/api/sessions/${sessionId}/hands/${hand.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            communityCards: allCommunityCards,
+            communityCards: pendingCards,
             currentStreet: nextStreet,
           }),
         }

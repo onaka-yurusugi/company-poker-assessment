@@ -243,17 +243,13 @@ export default function PlayPage() {
     setIsSubmitting(true);
     setError(null);
     try {
-      // 既存 + 新規のコミュニティカードをマージ
-      const existingCommunity = currentHand?.communityCards ?? [];
-      const merged = [...existingCommunity, ...communityCards];
-
       const res = await fetch(
         `/api/sessions/${sessionId}/hands/${currentHandId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            communityCards: merged,
+            communityCards: communityCards,
             currentStreet: street,
           }),
         }
