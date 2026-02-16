@@ -13,58 +13,64 @@ type RouteParams = { params: Promise<{ sessionId: string }> };
 // POST /api/sessions/[sessionId]/diagnose - AI診断実行
 export const POST = async (_request: NextRequest, { params }: RouteParams) => {
   const { sessionId } = await params;
-  const session = getSession(sessionId);
 
-  if (!session) {
-    return errorResponse(MESSAGES.sessionNotFound, 404);
-  }
+  try {
+    const session = await getSession(sessionId);
 
-  if (session.players.length === 0) {
-    return errorResponse("プレイヤーが登録されていません");
-  }
+    if (!session) {
+      return errorResponse(MESSAGES.sessionNotFound, 404);
+    }
 
-  if (session.hands.length === 0) {
-    return errorResponse("ハンドデータがありません");
-  }
+    if (session.players.length === 0) {
+      return errorResponse("プレイヤーが登録されていません");
+    }
 
-  // 診断中ステータスに更新
-  setSessionStatus(sessionId, "diagnosing");
+    if (session.hands.length === 0) {
+      return errorResponse("ハンドデータがありません");
+    }
 
-  const results: Record<string, DiagnosisResult> = {};
+    // 診断中ステータスに更新
+    await setSessionStatus(sessionId, "diagnosing");
 
-  for (const player of session.players) {
-    const stats = calculatePokerStats(player.id, session.hands);
-    const pokerStyle = determinePokerStyle(stats);
-    const businessType = getBusinessType(pokerStyle);
+    const results: Record<string, DiagnosisResult> = {};
 
-    const userPrompt = buildDiagnosisUserPrompt(
-      player.name,
-      stats,
-      pokerStyle,
-      businessType.name
-    );
+    for (const player of session.players) {
+      const stats = calculatePokerStats(player.id, session.hands);
+      const pokerStyle = determinePokerStyle(stats);
+      const businessType = getBusinessType(pokerStyle);
 
-    const aiResponse = await generateDiagnosis(DIAGNOSIS_SYSTEM_PROMPT, userPrompt);
+      const userPrompt = buildDiagnosisUserPrompt(
+        player.name,
+        stats,
+        pokerStyle,
+        businessType.name
+      );
 
-    results[player.id] = {
-      playerId: player.id,
-      playerName: player.name,
-      pokerStyle,
-      businessType: businessType.name,
-      businessTypeDescription: businessType.description,
-      axes: aiResponse.axes,
-      stats,
-      advice: aiResponse.advice,
-      strengths: aiResponse.strengths,
-      weaknesses: aiResponse.weaknesses,
-      createdAt: new Date().toISOString(),
-    };
-  }
+      const aiResponse = await generateDiagnosis(DIAGNOSIS_SYSTEM_PROMPT, userPrompt);
 
-  const updated = setDiagnosisResults(sessionId, results);
-  if (!updated) {
+      results[player.id] = {
+        playerId: player.id,
+        playerName: player.name,
+        pokerStyle,
+        businessType: businessType.name,
+        businessTypeDescription: businessType.description,
+        axes: aiResponse.axes,
+        stats,
+        advice: aiResponse.advice,
+        strengths: aiResponse.strengths,
+        weaknesses: aiResponse.weaknesses,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    const updated = await setDiagnosisResults(sessionId, results);
+    if (!updated) {
+      return errorResponse(MESSAGES.unexpectedError, 500);
+    }
+
+    return successResponse(updated);
+  } catch (error) {
+    console.error("POST /api/sessions/[sessionId]/diagnose error:", error);
     return errorResponse(MESSAGES.unexpectedError, 500);
   }
-
-  return successResponse(updated);
 };

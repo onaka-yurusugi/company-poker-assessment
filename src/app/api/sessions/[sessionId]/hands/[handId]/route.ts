@@ -10,48 +10,54 @@ type RouteParams = { params: Promise<{ sessionId: string; handId: string }> };
 // PUT /api/sessions/[sessionId]/hands/[handId] - ハンド更新
 export const PUT = async (request: NextRequest, { params }: RouteParams) => {
   const { sessionId, handId } = await params;
-  const session = getSession(sessionId);
 
-  if (!session) {
-    return errorResponse(MESSAGES.sessionNotFound, 404);
-  }
+  try {
+    const session = await getSession(sessionId);
 
-  const hand = getHand(sessionId, handId);
-  if (!hand) {
-    return errorResponse(MESSAGES.handNotFound, 404);
-  }
+    if (!session) {
+      return errorResponse(MESSAGES.sessionNotFound, 404);
+    }
 
-  const body = (await request.json()) as UpdateHandRequest;
+    const hand = await getHand(sessionId, handId);
+    if (!hand) {
+      return errorResponse(MESSAGES.handNotFound, 404);
+    }
 
-  // コミュニティカードのバリデーション
-  if (body.communityCards !== undefined) {
-    for (const card of body.communityCards) {
-      if (!isValidCard(card)) {
-        return errorResponse(MESSAGES.invalidCard);
-      }
-      if (!isCardAvailableInHand(card, hand)) {
-        return errorResponse(MESSAGES.cardAlreadyUsed);
+    const body = (await request.json()) as UpdateHandRequest;
+
+    // コミュニティカードのバリデーション
+    if (body.communityCards !== undefined) {
+      for (const card of body.communityCards) {
+        if (!isValidCard(card)) {
+          return errorResponse(MESSAGES.invalidCard);
+        }
+        if (!isCardAvailableInHand(card, hand)) {
+          return errorResponse(MESSAGES.cardAlreadyUsed);
+        }
       }
     }
-  }
 
-  // ストリートのバリデーション
-  if (body.currentStreet !== undefined && !isValidStreet(body.currentStreet)) {
-    return errorResponse(MESSAGES.invalidAction);
-  }
+    // ストリートのバリデーション
+    if (body.currentStreet !== undefined && !isValidStreet(body.currentStreet)) {
+      return errorResponse(MESSAGES.invalidAction);
+    }
 
-  const updated = updateHand(sessionId, handId, {
-    communityCards: body.communityCards
-      ? [...hand.communityCards, ...body.communityCards]
-      : undefined,
-    currentStreet: body.currentStreet,
-    isComplete: body.isComplete,
-    pot: body.pot,
-  });
+    const updated = await updateHand(sessionId, handId, {
+      communityCards: body.communityCards
+        ? [...hand.communityCards, ...body.communityCards]
+        : undefined,
+      currentStreet: body.currentStreet,
+      isComplete: body.isComplete,
+      pot: body.pot,
+    });
 
-  if (!updated) {
+    if (!updated) {
+      return errorResponse(MESSAGES.unexpectedError, 500);
+    }
+
+    return successResponse(updated);
+  } catch (error) {
+    console.error("PUT /api/sessions/[sessionId]/hands/[handId] error:", error);
     return errorResponse(MESSAGES.unexpectedError, 500);
   }
-
-  return successResponse(updated);
 };

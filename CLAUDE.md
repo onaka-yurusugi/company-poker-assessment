@@ -22,12 +22,13 @@ npm run lint     # ESLint実行
 - **OpenAI SDK** (GPT-5.2) — AI診断に使用
 - **Recharts** — レーダーチャート表示
 - **nanoid** — ID生成
+- **Firebase Admin SDK** (`firebase-admin`) — Firestore データ永続化
 
 ## Architecture
 
 ### データストア
 
-インメモリストア (`src/lib/store.ts`)。内部はmutableだが、外部にはreadonlyとして公開するイミュータブル設計。DBは未導入。
+Firebase Firestore（単一ドキュメントモデル）。Session全体を `sessions` コレクションの1ドキュメントに格納。Firebase Admin SDK (`src/lib/firebase.ts`) でサーバーサイドからアクセスし、ストア関数 (`src/lib/store.ts`) は全て非同期。
 
 ### API設計
 
@@ -81,5 +82,10 @@ hand-start → player-intro → card-input → action-select → turn-complete
 ## Environment Variables
 
 ```
-OPENAI_API_KEY=sk-...  # .env.local に配置
+OPENAI_API_KEY=sk-...                    # OpenAI APIキー
+FIREBASE_PROJECT_ID=your-project-id      # FirebaseプロジェクトID
+FIREBASE_CLIENT_EMAIL=sa@project.iam...  # サービスアカウントメール
+FIREBASE_PRIVATE_KEY="-----BEGIN..."     # サービスアカウント秘密鍵
 ```
+
+全て `.env.local` に配置。
