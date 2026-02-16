@@ -8,10 +8,12 @@ import DiagnosisCard from "@/components/result/DiagnosisCard";
 import RadarChartDisplay from "@/components/result/RadarChartDisplay";
 import StatsSummary from "@/components/result/StatsSummary";
 import AdviceSection from "@/components/result/AdviceSection";
+import PlayerPlayReview from "@/components/result/PlayerPlayReview";
 
 export default function ResultPage() {
   const params = useParams<{ sessionId: string; playerId: string }>();
   const [result, setResult] = useState<DiagnosisResult | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +33,7 @@ export default function ResultPage() {
           throw new Error("診断結果が見つかりません");
         }
         setResult(diagnosis);
+        setSession(json.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "予期しないエラーが発生しました");
       } finally {
@@ -86,6 +89,15 @@ export default function ResultPage() {
 
         {/* 統計サマリー */}
         <StatsSummary stats={result.stats} />
+
+        {/* プレイの振り返り */}
+        {session && (
+          <PlayerPlayReview
+            playerId={params.playerId}
+            hands={session.hands}
+            players={session.players}
+          />
+        )}
 
         {/* AIアドバイス */}
         <AdviceSection advice={result.advice} />
