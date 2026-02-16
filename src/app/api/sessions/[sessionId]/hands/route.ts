@@ -9,42 +9,54 @@ type RouteParams = { params: Promise<{ sessionId: string }> };
 // GET /api/sessions/[sessionId]/hands - ハンド一覧取得
 export const GET = async (_request: NextRequest, { params }: RouteParams) => {
   const { sessionId } = await params;
-  const session = getSession(sessionId);
 
-  if (!session) {
-    return errorResponse(MESSAGES.sessionNotFound, 404);
+  try {
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return errorResponse(MESSAGES.sessionNotFound, 404);
+    }
+
+    return successResponse(session.hands);
+  } catch (error) {
+    console.error("GET /api/sessions/[sessionId]/hands error:", error);
+    return errorResponse(MESSAGES.unexpectedError, 500);
   }
-
-  return successResponse(session.hands);
 };
 
 // POST /api/sessions/[sessionId]/hands - 新規ハンド作成
 export const POST = async (request: NextRequest, { params }: RouteParams) => {
   const { sessionId } = await params;
-  const session = getSession(sessionId);
 
-  if (!session) {
-    return errorResponse(MESSAGES.sessionNotFound, 404);
-  }
+  try {
+    const session = await getSession(sessionId);
 
-  const body = (await request.json()) as CreateHandRequest;
+    if (!session) {
+      return errorResponse(MESSAGES.sessionNotFound, 404);
+    }
 
-  if (!body.playerIds || body.playerIds.length === 0) {
-    return errorResponse("プレイヤーIDが必要です");
-  }
+    const body = (await request.json()) as CreateHandRequest;
 
-  // 全playerIdがセッション内に存在するか確認
-  const validPlayerIds = body.playerIds.every((pid) =>
-    session.players.some((p) => p.id === pid)
-  );
-  if (!validPlayerIds) {
-    return errorResponse(MESSAGES.playerNotFound);
-  }
+    if (!body.playerIds || body.playerIds.length === 0) {
+      return errorResponse("プレイヤーIDが必要です");
+    }
 
-  const updated = createHand(sessionId, body.playerIds);
-  if (!updated) {
+    // 全playerIdがセッション内に存在するか確認
+    const validPlayerIds = body.playerIds.every((pid) =>
+      session.players.some((p) => p.id === pid)
+    );
+    if (!validPlayerIds) {
+      return errorResponse(MESSAGES.playerNotFound);
+    }
+
+    const updated = await createHand(sessionId, body.playerIds);
+    if (!updated) {
+      return errorResponse(MESSAGES.unexpectedError, 500);
+    }
+
+    return successResponse(updated, 201);
+  } catch (error) {
+    console.error("POST /api/sessions/[sessionId]/hands error:", error);
     return errorResponse(MESSAGES.unexpectedError, 500);
   }
-
-  return successResponse(updated, 201);
 };

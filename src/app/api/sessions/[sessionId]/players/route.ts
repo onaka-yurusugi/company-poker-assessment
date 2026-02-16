@@ -9,32 +9,38 @@ type RouteParams = { params: Promise<{ sessionId: string }> };
 // POST /api/sessions/[sessionId]/players - プレイヤー参加
 export const POST = async (request: NextRequest, { params }: RouteParams) => {
   const { sessionId } = await params;
-  const session = getSession(sessionId);
 
-  if (!session) {
-    return errorResponse(MESSAGES.sessionNotFound, 404);
-  }
+  try {
+    const session = await getSession(sessionId);
 
-  const body = (await request.json()) as AddPlayerRequest;
+    if (!session) {
+      return errorResponse(MESSAGES.sessionNotFound, 404);
+    }
 
-  if (!body.name || body.name.trim().length === 0) {
-    return errorResponse(MESSAGES.nameRequired);
-  }
+    const body = (await request.json()) as AddPlayerRequest;
 
-  if (body.seatNumber == null) {
-    return errorResponse(MESSAGES.seatRequired);
-  }
+    if (!body.name || body.name.trim().length === 0) {
+      return errorResponse(MESSAGES.nameRequired);
+    }
 
-  // 座席の重複チェック
-  const seatTaken = session.players.some((p) => p.seatNumber === body.seatNumber);
-  if (seatTaken) {
-    return errorResponse(MESSAGES.seatTaken);
-  }
+    if (body.seatNumber == null) {
+      return errorResponse(MESSAGES.seatRequired);
+    }
 
-  const updated = addPlayer(sessionId, body.name.trim(), body.seatNumber);
-  if (!updated) {
+    // 座席の重複チェック
+    const seatTaken = session.players.some((p) => p.seatNumber === body.seatNumber);
+    if (seatTaken) {
+      return errorResponse(MESSAGES.seatTaken);
+    }
+
+    const updated = await addPlayer(sessionId, body.name.trim(), body.seatNumber);
+    if (!updated) {
+      return errorResponse(MESSAGES.unexpectedError, 500);
+    }
+
+    return successResponse(updated, 201);
+  } catch (error) {
+    console.error("POST /api/sessions/[sessionId]/players error:", error);
     return errorResponse(MESSAGES.unexpectedError, 500);
   }
-
-  return successResponse(updated, 201);
 };
