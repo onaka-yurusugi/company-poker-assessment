@@ -18,6 +18,7 @@ import LoadingSpinner from "@/components/shared/LoadingSpinner";
 import { ACTION_DISPLAY_MAP } from "@/constants/poker";
 import { STREET_LABELS } from "@/constants/ui";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import PlayReview from "@/components/play/PlayReview";
 
 // --- ストリート進行順 ---
 const STREET_ORDER: readonly Street[] = ["preflop", "flop", "turn", "river"];
@@ -42,6 +43,7 @@ type GamePhase =
   | { step: "turn-complete"; playerIndex: number; street: Street }
   | { step: "dealer-turn"; street: Street }
   | { step: "hand-complete" }
+  | { step: "review" }
   | { step: "diagnosing" }
   | { step: "complete" };
 
@@ -860,23 +862,32 @@ export default function PlayPage() {
             ) : (
               <button
                 type="button"
-                onClick={runDiagnosis}
+                onClick={() => setPhase({ step: "review" })}
                 className="w-full rounded-lg bg-secondary px-6 py-4 text-lg font-bold text-white transition-all hover:bg-purple-500"
               >
-                全ハンド終了！診断を実行する
+                全ハンド終了！プレイを振り返る
               </button>
             )}
 
             {handCount < totalHands && handCount >= 1 && (
               <button
                 type="button"
-                onClick={runDiagnosis}
+                onClick={() => setPhase({ step: "review" })}
                 className="text-sm text-gray-400 underline transition-colors hover:text-gray-200"
               >
-                ここまでのデータで診断する
+                ここまでのプレイを振り返る
               </button>
             )}
           </div>
+        )}
+
+        {/* ========== プレイ振り返り ========== */}
+        {phase.step === "review" && session && (
+          <PlayReview
+            hands={session.hands}
+            players={players}
+            onContinue={runDiagnosis}
+          />
         )}
 
         {/* ========== 診断中 ========== */}
