@@ -17,6 +17,7 @@ import PlayingCard from "@/components/shared/PlayingCard";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
 import { ACTION_DISPLAY_MAP } from "@/constants/poker";
 import { STREET_LABELS } from "@/constants/ui";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 // --- ストリート進行順 ---
 const STREET_ORDER: readonly Street[] = ["preflop", "flop", "turn", "river"];
@@ -59,22 +60,41 @@ export default function PlayPage() {
   const [raiseAmount, setRaiseAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [totalHands, setTotalHands] = useState<number>(10);
+  const [totalHands, setTotalHands] = useLocalStorage<number>(`poker-total-hands-${sessionId}`, 10);
   const [handCount, setHandCount] = useState(0);
   const [foldedPlayerIds, setFoldedPlayerIds] = useState<Set<string>>(new Set());
+  const [playersToAct, setPlayersToAct] = useState<Set<number>>(new Set());
 
   // セッション取得
-  const fetchSession = useCallback(async () => {
+  const fetchSession = useCallback(async (): Promise<Session | null> => {
     const res = await fetch(`/api/sessions/${sessionId}`);
     const json = (await res.json()) as ApiResponse<Session>;
     if (json.success) {
       setSession(json.data);
+      return json.data;
     }
+    return null;
   }, [sessionId]);
 
+  // 初回ロード時にセッション状態から正しいphaseを復元
   useEffect(() => {
-    fetchSession().then(() => {
-      setPhase({ step: "hand-start" });
+    fetchSession().then((data) => {
+      if (!data) return;
+
+      const completedHands = data.hands.filter((h) => h.isComplete).length;
+
+      if (data.status === "completed") {
+        setHandCount(completedHands);
+        setPhase({ step: "complete" });
+      } else if (data.status === "diagnosing") {
+        setHandCount(completedHands);
+        setPhase({ step: "diagnosing" });
+      } else if (completedHands > 0) {
+        setHandCount(completedHands);
+        setPhase({ step: "hand-complete" });
+      } else {
+        setPhase({ step: "hand-start" });
+      }
     });
   }, [fetchSession]);
 
@@ -122,15 +142,20 @@ export default function PlayPage() {
       });
   }, [players, foldedPlayerIds]);
 
-  // 指定ストリートで次のアクティブプレイヤーindexを返す
-  const getNextActiveIndex = useCallback(
+  // 次にアクションが必要なプレイヤーindexを返す（循環探索）
+  const getNextPlayerToAct = useCallback(
     (afterIndex: number): number | null => {
+      // afterIndex より後のプレイヤーを先に探す
       for (const idx of activePlayerIndices) {
-        if (idx > afterIndex) return idx;
+        if (idx > afterIndex && playersToAct.has(idx)) return idx;
+      }
+      // 見つからなければ先頭から探す（循環）
+      for (const idx of activePlayerIndices) {
+        if (idx < afterIndex && playersToAct.has(idx)) return idx;
       }
       return null;
     },
-    [activePlayerIndices]
+    [activePlayerIndices, playersToAct]
   );
 
   // --- ハンド開始 ---
@@ -156,6 +181,7 @@ export default function PlayPage() {
       setHandCount((c) => c + 1);
       setFoldedPlayerIds(new Set());
       setCommunityCards([]);
+      setPlayersToAct(new Set(players.map((_, i) => i)));
       setPhase({ step: "player-intro", playerIndex: 0, street: "preflop" });
     } catch {
       setError("ハンドの開始に失敗しました");
@@ -225,6 +251,25 @@ export default function PlayPage() {
 
       if (actionType === "fold") {
         setFoldedPlayerIds((prev) => new Set([...prev, player.id]));
+        setPlayersToAct((prev) => {
+          const next = new Set(prev);
+          next.delete(playerIndex);
+          return next;
+        });
+      } else {
+        setPlayersToAct((prev) => {
+          const next = new Set(prev);
+          next.delete(playerIndex);
+          if (actionType === "raise") {
+            // レイズ時は他のアクティブプレイヤー全員にアクション権を付与
+            for (const idx of activePlayerIndices) {
+              if (idx !== playerIndex) {
+                next.add(idx);
+              }
+            }
+          }
+          return next;
+        });
       }
 
       setSelectedCards([]);
@@ -261,6 +306,7 @@ export default function PlayPage() {
       }
       setSession(json.data);
       setCommunityCards([]);
+      setPlayersToAct(new Set(activePlayerIndices));
 
       // フォールドしていないプレイヤーでラウンド開始
       const firstActive = activePlayerIndices[0];
@@ -279,15 +325,17 @@ export default function PlayPage() {
 
   // --- ターン完了 → 次へ ---
   const proceedFromTurnComplete = (currentPlayerIndex: number, street: Street) => {
-    const nextIdx = getNextActiveIndex(currentPlayerIndex);
+    // アクティブプレイヤーが1人以下ならハンド終了
+    if (activePlayerIndices.length < 2) {
+      finishHand();
+      return;
+    }
+
+    const nextIdx = getNextPlayerToAct(currentPlayerIndex);
 
     if (nextIdx !== null) {
-      // 次のプレイヤーへ
-      if (street === "preflop") {
-        setPhase({ step: "player-intro", playerIndex: nextIdx, street: "preflop" });
-      } else {
-        setPhase({ step: "player-intro", playerIndex: nextIdx, street });
-      }
+      // まだアクションが必要なプレイヤーがいる
+      setPhase({ step: "player-intro", playerIndex: nextIdx, street });
     } else {
       // ラウンド終了 → 次のストリートへ
       const nextStreet = NEXT_STREET[street];
@@ -364,7 +412,7 @@ export default function PlayPage() {
   // 現在のプレイヤーの名前を取得するヘルパー
   const getPlayerName = (index: number) => players[index]?.name ?? "";
   const getNextPlayerName = (currentIndex: number, street: Street) => {
-    const nextIdx = getNextActiveIndex(currentIndex);
+    const nextIdx = getNextPlayerToAct(currentIndex);
     if (nextIdx !== null) return players[nextIdx]?.name ?? "次の人";
     const nextStreet = NEXT_STREET[street];
     if (nextStreet) return "ディーラー";
@@ -373,7 +421,10 @@ export default function PlayPage() {
 
   // ターン完了時の次の行き先を表すメッセージ
   const getTurnCompleteMessage = (currentIndex: number, street: Street) => {
-    const nextIdx = getNextActiveIndex(currentIndex);
+    if (activePlayerIndices.length < 2) {
+      return { isLast: true, nextName: "" };
+    }
+    const nextIdx = getNextPlayerToAct(currentIndex);
     if (nextIdx !== null) {
       return { isLast: false, nextName: getPlayerName(nextIdx) };
     }
@@ -509,7 +560,15 @@ export default function PlayPage() {
                 setSelectedCards([]);
                 setRaiseAmount("");
                 if (phase.street === "preflop") {
-                  setPhase({ step: "card-input", playerIndex: phase.playerIndex });
+                  // リレイズで戻ってきた場合はカード入力をスキップ
+                  const playerHand = currentHand?.playerHands.find(
+                    (ph) => ph.playerId === players[phase.playerIndex]?.id
+                  );
+                  if (playerHand?.holeCards) {
+                    setPhase({ step: "action-select", playerIndex: phase.playerIndex, street: "preflop" });
+                  } else {
+                    setPhase({ step: "card-input", playerIndex: phase.playerIndex });
+                  }
                 } else {
                   setPhase({ step: "action-select", playerIndex: phase.playerIndex, street: phase.street });
                 }
@@ -808,7 +867,7 @@ export default function PlayPage() {
               </button>
             )}
 
-            {handCount < totalHands && handCount >= 3 && (
+            {handCount < totalHands && handCount >= 1 && (
               <button
                 type="button"
                 onClick={runDiagnosis}
