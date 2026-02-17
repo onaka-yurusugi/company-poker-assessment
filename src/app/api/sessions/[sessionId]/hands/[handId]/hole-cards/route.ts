@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession, getHand, setHoleCards } from "@/lib/store";
 import { successResponse, errorResponse } from "@/lib/response";
 import { MESSAGES } from "@/constants/ui";
-import { isValidCard, isCardAvailableInHand } from "@/lib/validators";
+import { isValidCard, isCardAvailableOnBoard } from "@/lib/validators";
 import type { SetHoleCardsRequest } from "@/types";
 
 type RouteParams = { params: Promise<{ sessionId: string; handId: string }> };
@@ -40,7 +40,7 @@ export const PUT = async (request: NextRequest, { params }: RouteParams) => {
       if (!isValidCard(card)) {
         return errorResponse(MESSAGES.invalidCard);
       }
-      if (!isCardAvailableInHand(card, hand)) {
+      if (!isCardAvailableOnBoard(card, hand)) {
         return errorResponse(MESSAGES.cardAlreadyUsed);
       }
     }

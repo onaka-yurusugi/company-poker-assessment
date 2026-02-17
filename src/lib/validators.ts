@@ -16,13 +16,16 @@ export const isValidActionType = (value: string): value is ActionType =>
 export const isValidStreet = (value: string): value is Street =>
   (STREETS as readonly string[]).includes(value);
 
-// 指定カードがハンド内で既に使用されていないかチェック
-export const isCardAvailableInHand = (card: Card, hand: Hand): boolean => {
-  // コミュニティカードと照合
-  const usedInCommunity = hand.communityCards.some(
+// 指定カードがコミュニティカードと重複していないかチェック
+export const isCardAvailableOnBoard = (card: Card, hand: Hand): boolean => {
+  return !hand.communityCards.some(
     (c) => c.suit === card.suit && c.rank === card.rank
   );
-  if (usedInCommunity) return false;
+};
+
+// 指定カードがハンド内で既に使用されていないかチェック（コミュニティカード + 全ホールカード）
+export const isCardAvailableInHand = (card: Card, hand: Hand): boolean => {
+  if (!isCardAvailableOnBoard(card, hand)) return false;
 
   // ホールカードと照合
   const usedInHoleCards = hand.playerHands.some(
