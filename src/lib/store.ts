@@ -7,6 +7,8 @@ import type {
   Card,
   Street,
   DiagnosisResult,
+  PersistedGamePhase,
+  GameState,
 } from "@/types";
 import { generateSessionCode } from "./session-code";
 import { getDb } from "./firebase";
@@ -17,6 +19,33 @@ const sessionsCollection = () => getDb().collection(COLLECTION);
 const sessionDoc = (sessionId: string) => sessionsCollection().doc(sessionId);
 
 const toSession = (data: FirebaseFirestore.DocumentData): Session => data as Session;
+
+// --- 内部ヘルパー ---
+
+const mergeGamePhase = (
+  currentState: GameState | null,
+  gamePhase?: PersistedGamePhase,
+  overrides?: { totalHands?: number; currentHandId?: string | null }
+): GameState | null => {
+  if (!gamePhase && !overrides) return currentState;
+
+  const base: GameState = currentState ?? {
+    gamePhase: { step: "hand-start" },
+    totalHands: 10,
+    currentHandId: null,
+  };
+
+  return {
+    gamePhase: gamePhase ?? base.gamePhase,
+    totalHands: overrides?.totalHands ?? base.totalHands,
+    currentHandId: overrides?.currentHandId !== undefined
+      ? overrides.currentHandId
+      : base.currentHandId,
+  };
+};
+
+const serializeForFirestore = <T>(value: T): T =>
+  JSON.parse(JSON.stringify(value)) as T;
 
 // --- 公開関数 ---
 
@@ -31,8 +60,9 @@ export const createSession = async (): Promise<Session> => {
     status: "waiting",
     diagnosisResults: {},
     createdAt: new Date().toISOString(),
+    gameState: null,
   };
-  await sessionDoc(id).set(JSON.parse(JSON.stringify(session)));
+  await sessionDoc(id).set(serializeForFirestore(session));
   return session;
 };
 
@@ -74,7 +104,9 @@ export const addPlayer = async (
 
 export const createHand = async (
   sessionId: string,
-  playerIds: readonly string[]
+  playerIds: readonly string[],
+  gamePhase?: PersistedGamePhase,
+  totalHands?: number
 ): Promise<Session | undefined> => {
   const doc = await sessionDoc(sessionId).get();
   if (!doc.exists) return undefined;
@@ -98,9 +130,22 @@ export const createHand = async (
   };
 
   const updatedHands = [...session.hands, hand];
-  await sessionDoc(sessionId).update({ hands: updatedHands, status: "playing" });
+  const updatedGameState = mergeGamePhase(
+    session.gameState,
+    gamePhase,
+    { currentHandId: hand.id, totalHands }
+  );
 
-  return { ...session, hands: updatedHands, status: "playing" };
+  const updateData: Record<string, unknown> = {
+    hands: updatedHands,
+    status: "playing",
+  };
+  if (updatedGameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return { ...session, hands: updatedHands, status: "playing", gameState: updatedGameState };
 };
 
 export const getHand = async (
@@ -120,7 +165,8 @@ export const updateHand = async (
     currentStreet?: Street;
     isComplete?: boolean;
     pot?: number;
-  }
+  },
+  gamePhase?: PersistedGamePhase
 ): Promise<Session | undefined> => {
   const doc = await sessionDoc(sessionId).get();
   if (!doc.exists) return undefined;
@@ -141,15 +187,30 @@ export const updateHand = async (
   const updatedHands = session.hands.map((h, i) =>
     i === handIndex ? updatedHand : h
   );
-  await sessionDoc(sessionId).update({ hands: JSON.parse(JSON.stringify(updatedHands)) });
 
-  return { ...session, hands: updatedHands };
+  // isComplete時はcurrentHandIdをクリア
+  const updatedGameState = mergeGamePhase(
+    session.gameState,
+    gamePhase,
+    updates.isComplete ? { currentHandId: null } : undefined
+  );
+
+  const updateData: Record<string, unknown> = {
+    hands: serializeForFirestore(updatedHands),
+  };
+  if (updatedGameState && updatedGameState !== session.gameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return { ...session, hands: updatedHands, gameState: updatedGameState };
 };
 
 export const addAction = async (
   sessionId: string,
   handId: string,
-  action: { playerId: string; type: ActionType; amount: number | null }
+  action: { playerId: string; type: ActionType; amount: number | null },
+  gamePhase?: PersistedGamePhase
 ): Promise<Session | undefined> => {
   const doc = await sessionDoc(sessionId).get();
   if (!doc.exists) return undefined;
@@ -172,16 +233,26 @@ export const addAction = async (
   const updatedHands = session.hands.map((h, i) =>
     i === handIndex ? { ...h, actions: updatedActions } : h
   );
-  await sessionDoc(sessionId).update({ hands: JSON.parse(JSON.stringify(updatedHands)) });
 
-  return { ...session, hands: updatedHands };
+  const updatedGameState = mergeGamePhase(session.gameState, gamePhase);
+
+  const updateData: Record<string, unknown> = {
+    hands: serializeForFirestore(updatedHands),
+  };
+  if (updatedGameState && updatedGameState !== session.gameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return { ...session, hands: updatedHands, gameState: updatedGameState };
 };
 
 export const setHoleCards = async (
   sessionId: string,
   handId: string,
   playerId: string,
-  holeCards: readonly [Card, Card]
+  holeCards: readonly [Card, Card],
+  gamePhase?: PersistedGamePhase
 ): Promise<Session | undefined> => {
   const doc = await sessionDoc(sessionId).get();
   if (!doc.exists) return undefined;
@@ -200,22 +271,38 @@ export const setHoleCards = async (
   const updatedHands = session.hands.map((h, i) =>
     i === handIndex ? { ...h, playerHands: updatedPlayerHands } : h
   );
-  await sessionDoc(sessionId).update({ hands: JSON.parse(JSON.stringify(updatedHands)) });
 
-  return { ...session, hands: updatedHands };
+  const updatedGameState = mergeGamePhase(session.gameState, gamePhase);
+
+  const updateData: Record<string, unknown> = {
+    hands: serializeForFirestore(updatedHands),
+  };
+  if (updatedGameState && updatedGameState !== session.gameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return { ...session, hands: updatedHands, gameState: updatedGameState };
 };
 
 export const setSessionStatus = async (
   sessionId: string,
-  status: SessionStatus
+  status: SessionStatus,
+  gamePhase?: PersistedGamePhase
 ): Promise<Session | undefined> => {
   const doc = await sessionDoc(sessionId).get();
   if (!doc.exists) return undefined;
 
   const session = toSession(doc.data()!);
-  await sessionDoc(sessionId).update({ status });
+  const updatedGameState = mergeGamePhase(session.gameState, gamePhase);
 
-  return { ...session, status };
+  const updateData: Record<string, unknown> = { status };
+  if (updatedGameState && updatedGameState !== session.gameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return { ...session, status, gameState: updatedGameState };
 };
 
 export const setDiagnosisResults = async (
@@ -226,10 +313,21 @@ export const setDiagnosisResults = async (
   if (!doc.exists) return undefined;
 
   const session = toSession(doc.data()!);
-  await sessionDoc(sessionId).update({
-    diagnosisResults: JSON.parse(JSON.stringify(results)),
-    status: "completed",
-  });
+  const updatedGameState = mergeGamePhase(session.gameState, { step: "complete" });
 
-  return { ...session, diagnosisResults: { ...results }, status: "completed" };
+  const updateData: Record<string, unknown> = {
+    diagnosisResults: serializeForFirestore(results),
+    status: "completed",
+  };
+  if (updatedGameState) {
+    updateData.gameState = serializeForFirestore(updatedGameState);
+  }
+  await sessionDoc(sessionId).update(updateData);
+
+  return {
+    ...session,
+    diagnosisResults: { ...results },
+    status: "completed",
+    gameState: updatedGameState,
+  };
 };

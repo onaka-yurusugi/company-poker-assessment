@@ -45,7 +45,7 @@ export const PUT = async (request: NextRequest, { params }: RouteParams) => {
       }
     }
 
-    const updated = await setHoleCards(sessionId, handId, body.playerId, body.holeCards);
+    const updated = await setHoleCards(sessionId, handId, body.playerId, body.holeCards, body.gamePhase);
     if (!updated) {
       return errorResponse(MESSAGES.unexpectedError, 500);
     }

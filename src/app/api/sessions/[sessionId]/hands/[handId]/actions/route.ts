@@ -43,11 +43,16 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
       return errorResponse(MESSAGES.playerNotFound);
     }
 
-    const updated = await addAction(sessionId, handId, {
-      playerId: body.playerId,
-      type: body.type,
-      amount: body.amount ?? null,
-    });
+    const updated = await addAction(
+      sessionId,
+      handId,
+      {
+        playerId: body.playerId,
+        type: body.type,
+        amount: body.amount ?? null,
+      },
+      body.gamePhase
+    );
 
     if (!updated) {
       return errorResponse(MESSAGES.unexpectedError, 500);

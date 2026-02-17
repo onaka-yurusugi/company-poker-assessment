@@ -11,6 +11,8 @@ import type {
   Street,
   ApiResponse,
   AddActionResponse,
+  GamePhase,
+  PersistedGamePhase,
 } from "@/types";
 import CardSelector from "@/components/player/CardSelector";
 import PlayingCard from "@/components/shared/PlayingCard";
@@ -19,9 +21,14 @@ import { ACTION_DISPLAY_MAP } from "@/constants/poker";
 import { STREET_LABELS } from "@/constants/ui";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PlayReview from "@/components/play/PlayReview";
+import {
+  deriveHandCount,
+  deriveFoldedPlayerIds,
+  derivePlayersToAct,
+  getStreetFromPhase,
+} from "@/lib/game-state";
 
 // --- ストリート進行順 ---
-const STREET_ORDER: readonly Street[] = ["preflop", "flop", "turn", "river"];
 const NEXT_STREET: Readonly<Partial<Record<Street, Street>>> = {
   preflop: "flop",
   flop: "turn",
@@ -32,20 +39,6 @@ const COMMUNITY_CARD_COUNT: Readonly<Record<string, number>> = {
   turn: 1,
   river: 1,
 };
-
-// --- 状態マシン ---
-type GamePhase =
-  | { step: "loading" }
-  | { step: "hand-start" }
-  | { step: "player-intro"; playerIndex: number; street: Street }
-  | { step: "card-input"; playerIndex: number }
-  | { step: "action-select"; playerIndex: number; street: Street }
-  | { step: "turn-complete"; playerIndex: number; street: Street }
-  | { step: "dealer-turn"; street: Street }
-  | { step: "hand-complete" }
-  | { step: "review" }
-  | { step: "diagnosing" }
-  | { step: "complete" };
 
 const HAND_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 
@@ -83,22 +76,43 @@ export default function PlayPage() {
     fetchSession().then((data) => {
       if (!data) return;
 
-      const completedHands = data.hands.filter((h) => h.isComplete).length;
+      const completedHands = deriveHandCount(data.hands);
+      setHandCount(completedHands);
 
+      // gameStateがDBに保存されている場合、そこから精密に復元
+      if (data.gameState) {
+        const gs = data.gameState;
+        setTotalHands(gs.totalHands);
+        setCurrentHandId(gs.currentHandId);
+
+        // 未完了ハンドがある場合、foldedPlayerIds と playersToAct を導出
+        if (gs.currentHandId) {
+          const currentHandForRestore = data.hands.find((h) => h.id === gs.currentHandId);
+          if (currentHandForRestore && !currentHandForRestore.isComplete) {
+            setFoldedPlayerIds(deriveFoldedPlayerIds(currentHandForRestore));
+            const street = getStreetFromPhase(gs.gamePhase);
+            if (street) {
+              setPlayersToAct(derivePlayersToAct(currentHandForRestore, street, data.players));
+            }
+          }
+        }
+
+        setPhase(gs.gamePhase);
+        return;
+      }
+
+      // gameState なし（レガシーデータ or 新規セッション）→ フォールバック
       if (data.status === "completed") {
-        setHandCount(completedHands);
         setPhase({ step: "complete" });
       } else if (data.status === "diagnosing") {
-        setHandCount(completedHands);
         setPhase({ step: "diagnosing" });
       } else if (completedHands > 0) {
-        setHandCount(completedHands);
         setPhase({ step: "hand-complete" });
       } else {
         setPhase({ step: "hand-start" });
       }
     });
-  }, [fetchSession]);
+  }, [fetchSession, setTotalHands]);
 
   const players: readonly Player[] = session?.players ?? [];
 
@@ -166,10 +180,11 @@ export default function PlayPage() {
     setIsSubmitting(true);
     try {
       const playerIds = players.map((p) => p.id);
+      const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: 0, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds }),
+        body: JSON.stringify({ playerIds, gamePhase: nextPhase, totalHands }),
       });
       const json = (await res.json()) as ApiResponse<Session>;
       if (!json.success) {
@@ -206,7 +221,11 @@ export default function PlayPage() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId: player.id, holeCards: cards }),
+          body: JSON.stringify({
+            playerId: player.id,
+            holeCards: cards,
+            gamePhase: { step: "action-select", playerIndex, street: "preflop" } satisfies PersistedGamePhase,
+          }),
         }
       );
       const json = (await res.json()) as ApiResponse<Session>;
@@ -241,6 +260,7 @@ export default function PlayPage() {
             playerId: player.id,
             type: actionType,
             amount: actionType === "raise" ? Number(raiseAmount) || null : null,
+            gamePhase: { step: "turn-complete", playerIndex, street } satisfies PersistedGamePhase,
           }),
         }
       );
@@ -298,6 +318,13 @@ export default function PlayPage() {
           body: JSON.stringify({
             communityCards: communityCards,
             currentStreet: street,
+            gamePhase: (() => {
+              const firstActive = activePlayerIndices[0];
+              if (firstActive !== undefined && activePlayerIndices.length >= 2) {
+                return { step: "player-intro", playerIndex: firstActive, street } satisfies PersistedGamePhase;
+              }
+              return { step: "hand-complete" } satisfies PersistedGamePhase;
+            })(),
           }),
         }
       );
@@ -355,7 +382,10 @@ export default function PlayPage() {
       fetch(`/api/sessions/${sessionId}/hands/${currentHandId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isComplete: true }),
+        body: JSON.stringify({
+          isComplete: true,
+          gamePhase: { step: "hand-complete" } satisfies PersistedGamePhase,
+        }),
       })
         .then((res) => res.json())
         .then((json: ApiResponse<Session>) => {
