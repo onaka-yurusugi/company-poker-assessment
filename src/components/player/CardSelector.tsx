@@ -47,9 +47,8 @@ export default function CardSelector({ onSelect, disabledCards = [] }: CardSelec
                 <button
                   key={`${suit}-${rank}`}
                   type="button"
-                  onClick={() => onSelect({ suit, rank })}
-                  disabled={disabled}
-                  className={`flex aspect-[3/4] items-center justify-center rounded text-xs font-bold transition-all sm:text-sm ${SUIT_TILE_STYLE[suit]} hover:brightness-125 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed`}
+                  onClick={() => { if (!disabled) onSelect({ suit, rank }); }}
+                  className={`flex aspect-[3/4] items-center justify-center rounded text-xs font-bold transition-all sm:text-sm ${SUIT_TILE_STYLE[suit]} ${disabled ? "" : "hover:brightness-125 active:scale-90"}`}
                 >
                   {RANK_LABEL[rank]}
                 </button>
