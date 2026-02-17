@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import type { Session, DiagnosisResult, ApiResponse } from "@/types";
+import { formatDateTime } from "@/utils/format";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
 import DiagnosisCard from "@/components/result/DiagnosisCard";
 import RadarChartDisplay from "@/components/result/RadarChartDisplay";
@@ -105,7 +106,7 @@ export default function ResultPage() {
         {/* フッター */}
         <div className="border-t border-gray-200 pt-6 text-center print:border-none">
           <p className="text-xs text-muted">
-            診断日時: {new Date(result.createdAt).toLocaleString("ja-JP")}
+            診断日時: {formatDateTime(result.createdAt)}
           </p>
         </div>
       </div>

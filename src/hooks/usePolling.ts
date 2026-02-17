@@ -58,6 +58,13 @@ export function usePolling<T>(
     setIsLoading(true);
     fetchData();
 
+    // intervalMs <= 0 の場合は初回のみ（ポーリングなし）
+    if (intervalMs <= 0) {
+      return () => {
+        abortControllerRef.current?.abort();
+      };
+    }
+
     const intervalId = setInterval(fetchData, intervalMs);
 
     return () => {

@@ -305,6 +305,13 @@ export const setSessionStatus = async (
   return { ...session, status, gameState: updatedGameState };
 };
 
+export const listSessions = async (): Promise<readonly Session[]> => {
+  const snapshot = await sessionsCollection()
+    .orderBy("createdAt", "desc")
+    .get();
+  return snapshot.docs.map((doc) => toSession(doc.data()));
+};
+
 export const setDiagnosisResults = async (
   sessionId: string,
   results: Readonly<Record<string, DiagnosisResult>>

@@ -34,4 +34,6 @@ export type {
   SetHoleCardsRequest,
   SetHoleCardsResponse,
   DiagnoseResponse,
+  SessionSummary,
+  ListSessionsResponse,
 } from "./api";
