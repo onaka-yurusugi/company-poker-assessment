@@ -1,4 +1,5 @@
 import type { Card } from "./card";
+import type { PersistedGamePhase } from "./game-state";
 import type { ActionType, Street } from "./hand";
 import type { DiagnosisResult } from "./diagnosis";
 import type { Session } from "./session";
@@ -24,6 +25,8 @@ export type AddPlayerResponse = Session;
 // POST /api/sessions/[sessionId]/hands
 export type CreateHandRequest = {
   readonly playerIds: readonly string[];
+  readonly gamePhase?: PersistedGamePhase;
+  readonly totalHands?: number;
 };
 export type CreateHandResponse = Session;
 
@@ -33,6 +36,7 @@ export type UpdateHandRequest = {
   readonly currentStreet?: Street;
   readonly isComplete?: boolean;
   readonly pot?: number;
+  readonly gamePhase?: PersistedGamePhase;
 };
 export type UpdateHandResponse = Session;
 
@@ -41,6 +45,7 @@ export type AddActionRequest = {
   readonly playerId: string;
   readonly type: ActionType;
   readonly amount?: number | null;
+  readonly gamePhase?: PersistedGamePhase;
 };
 export type AddActionResponse = Session;
 
@@ -48,6 +53,7 @@ export type AddActionResponse = Session;
 export type SetHoleCardsRequest = {
   readonly playerId: string;
   readonly holeCards: readonly [Card, Card];
+  readonly gamePhase?: PersistedGamePhase;
 };
 export type SetHoleCardsResponse = Session;
 

@@ -1,4 +1,5 @@
 import type { DiagnosisResult } from "./diagnosis";
+import type { GameState } from "./game-state";
 import type { Hand } from "./hand";
 import type { Player } from "./player";
 
@@ -13,4 +14,5 @@ export type Session = {
   readonly status: SessionStatus;
   readonly diagnosisResults: Readonly<Record<string, DiagnosisResult>>;
   readonly createdAt: string;
+  readonly gameState: GameState | null;
 };

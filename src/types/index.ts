@@ -9,6 +9,8 @@ export { STREETS, ACTION_TYPES } from "./hand";
 export type { SessionStatus, Session } from "./session";
 export { SESSION_STATUSES } from "./session";
 
+export type { GamePhase, PersistedGamePhase, GameState } from "./game-state";
+
 export type {
   PokerStyle,
   DiagnosisAxis,

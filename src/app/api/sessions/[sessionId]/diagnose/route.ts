@@ -29,8 +29,8 @@ export const POST = async (_request: NextRequest, { params }: RouteParams) => {
       return errorResponse("ハンドデータがありません");
     }
 
-    // 診断中ステータスに更新
-    await setSessionStatus(sessionId, "diagnosing");
+    // 診断中ステータスに更新（gamePhaseも同期）
+    await setSessionStatus(sessionId, "diagnosing", { step: "diagnosing" });
 
     const results: Record<string, DiagnosisResult> = {};
 

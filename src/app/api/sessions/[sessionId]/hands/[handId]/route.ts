@@ -42,14 +42,19 @@ export const PUT = async (request: NextRequest, { params }: RouteParams) => {
       return errorResponse(MESSAGES.invalidAction);
     }
 
-    const updated = await updateHand(sessionId, handId, {
-      communityCards: body.communityCards
-        ? [...hand.communityCards, ...body.communityCards]
-        : undefined,
-      currentStreet: body.currentStreet,
-      isComplete: body.isComplete,
-      pot: body.pot,
-    });
+    const updated = await updateHand(
+      sessionId,
+      handId,
+      {
+        communityCards: body.communityCards
+          ? [...hand.communityCards, ...body.communityCards]
+          : undefined,
+        currentStreet: body.currentStreet,
+        isComplete: body.isComplete,
+        pot: body.pot,
+      },
+      body.gamePhase
+    );
 
     if (!updated) {
       return errorResponse(MESSAGES.unexpectedError, 500);
