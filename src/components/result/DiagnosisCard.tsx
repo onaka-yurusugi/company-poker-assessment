@@ -5,7 +5,7 @@ type DiagnosisCardProps = {
   readonly businessType: string;
   readonly businessTypeDescription: string;
   readonly strengths: readonly string[];
-  readonly weaknesses: readonly string[];
+  readonly growthPotentials: readonly string[];
 };
 
 const styleConfig: Record<PokerStyle, {
@@ -50,7 +50,7 @@ export default function DiagnosisCard({
   businessType,
   businessTypeDescription,
   strengths,
-  weaknesses,
+  growthPotentials,
 }: DiagnosisCardProps) {
   const config = styleConfig[pokerStyle];
 
@@ -91,19 +91,19 @@ export default function DiagnosisCard({
           </ul>
         </div>
 
-        {/* 弱み */}
+        {/* さらなる可能性 */}
         <div className="rounded-xl bg-white/60 p-4">
-          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-warning">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-primary">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
-            改善ポイント
+            さらなる可能性
           </h3>
           <ul className="space-y-1.5 text-sm text-foreground/70">
-            {weaknesses.map((w) => (
-              <li key={w} className="flex items-start gap-1.5">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
-                {w}
+            {growthPotentials.map((g) => (
+              <li key={g} className="flex items-start gap-1.5">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                {g}
               </li>
             ))}
           </ul>

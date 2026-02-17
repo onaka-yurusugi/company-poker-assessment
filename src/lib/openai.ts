@@ -5,7 +5,7 @@ type DiagnosisResponse = {
   readonly axes: readonly DiagnosisAxis[];
   readonly advice: string;
   readonly strengths: readonly string[];
-  readonly weaknesses: readonly string[];
+  readonly growthPotentials: readonly string[];
 };
 
 const getClient = (): OpenAI => new OpenAI();

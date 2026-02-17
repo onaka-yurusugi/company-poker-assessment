@@ -58,7 +58,7 @@ export const POST = async (_request: NextRequest, { params }: RouteParams) => {
         stats,
         advice: aiResponse.advice,
         strengths: aiResponse.strengths,
-        weaknesses: aiResponse.weaknesses,
+        growthPotentials: aiResponse.growthPotentials,
         createdAt: new Date().toISOString(),
       };
     }

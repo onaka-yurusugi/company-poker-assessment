@@ -151,6 +151,30 @@ function HandReviewCard({ hand, playerMap }: HandReviewCardProps) {
         )}
       </div>
 
+      {/* プレイヤーのホールカード */}
+      {hand.playerHands.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-3">
+          {hand.playerHands.map((ph) => {
+            const player = playerMap.get(ph.playerId);
+            if (!player || !ph.holeCards) return null;
+            return (
+              <div
+                key={ph.playerId}
+                className="flex items-center gap-2 rounded-lg bg-poker-gold/15 px-3 py-2 ring-1 ring-poker-gold/30"
+              >
+                <span className="text-xs font-medium text-poker-gold">
+                  {player.name}
+                </span>
+                <div className="flex gap-0.5">
+                  <PlayingCard card={ph.holeCards[0]} size="sm" />
+                  <PlayingCard card={ph.holeCards[1]} size="sm" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ストリートごとのアクション */}
       <div className="flex flex-col gap-3">
         {activeStreets.map((street) => {

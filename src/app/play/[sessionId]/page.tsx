@@ -938,15 +938,16 @@ export default function PlayPage() {
 
             <div className="flex w-full flex-col gap-3">
               {players.map((player) => (
-                <button
+                <a
                   key={player.id}
-                  type="button"
-                  onClick={() => router.push(`/result/${sessionId}/${player.id}`)}
+                  href={`/result/${sessionId}/${player.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center justify-between rounded-lg border border-white/20 bg-white/5 px-4 py-4 text-left transition-all hover:bg-white/10"
                 >
                   <span className="text-lg font-medium text-white">{player.name}</span>
                   <span className="text-sm text-poker-gold">結果を見る →</span>
-                </button>
+                </a>
               ))}
             </div>
 
