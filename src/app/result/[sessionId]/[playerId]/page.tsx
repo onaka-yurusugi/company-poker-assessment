@@ -79,7 +79,7 @@ export default function ResultPage() {
           businessType={result.businessType}
           businessTypeDescription={result.businessTypeDescription}
           strengths={result.strengths}
-          weaknesses={result.weaknesses}
+          growthPotentials={result.growthPotentials}
         />
 
         {/* レーダーチャート */}
