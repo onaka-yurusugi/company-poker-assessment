@@ -4,8 +4,8 @@ type DiagnosisCardProps = {
   readonly pokerStyle: PokerStyle;
   readonly businessType: string;
   readonly businessTypeDescription: string;
-  readonly strengths: readonly string[];
-  readonly growthPotentials: readonly string[];
+  readonly strengths?: readonly string[];
+  readonly growthPotentials?: readonly string[];
 };
 
 const styleConfig: Record<PokerStyle, {
@@ -49,8 +49,8 @@ export default function DiagnosisCard({
   pokerStyle,
   businessType,
   businessTypeDescription,
-  strengths,
-  growthPotentials,
+  strengths = [],
+  growthPotentials = [],
 }: DiagnosisCardProps) {
   const config = styleConfig[pokerStyle];
 
