@@ -61,3 +61,15 @@ export type SetHoleCardsResponse = Session;
 export type DiagnoseResponse = {
   readonly results: Readonly<Record<string, DiagnosisResult>>;
 };
+
+// GET /api/admin/sessions
+export type SessionSummary = {
+  readonly id: string;
+  readonly code: string;
+  readonly status: Session["status"];
+  readonly players: Session["players"];
+  readonly handCount: number;
+  readonly createdAt: string;
+  readonly hasDiagnosis: boolean;
+};
+export type ListSessionsResponse = readonly SessionSummary[];

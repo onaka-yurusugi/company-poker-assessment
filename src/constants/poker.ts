@@ -1,4 +1,4 @@
-import type { ActionType, Suit } from "@/types";
+import type { ActionType, Street, Suit } from "@/types";
 
 export const SUIT_DISPLAY_MAP: Readonly<Record<Suit, string>> = {
   spade: "♠",
@@ -22,4 +22,20 @@ export const ACTION_DISPLAY_MAP: Readonly<Record<ActionType, string>> = {
   check: "チェック",
   call: "コール",
   raise: "レイズ",
+} as const;
+
+// ストリートごとの累計コミュニティカード枚数
+export const COMMUNITY_CARD_CUMULATIVE: Readonly<Record<Street, number>> = {
+  preflop: 0,
+  flop: 3,
+  turn: 4,
+  river: 5,
+} as const;
+
+// アクション種別ごとのテキストカラー
+export const ACTION_STYLE_MAP: Readonly<Record<ActionType, string>> = {
+  fold: "text-gray-500",
+  check: "text-gray-600",
+  call: "text-emerald-600",
+  raise: "text-amber-600 font-semibold",
 } as const;

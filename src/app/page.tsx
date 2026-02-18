@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { ApiResponse, CreateSessionResponse, AddPlayerResponse } from "@/types";
 
 const MIN_PLAYERS = 2;
@@ -165,6 +166,14 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      {/* 管理画面リンク */}
+      <Link
+        href="/admin"
+        className="fixed right-4 bottom-4 z-50 rounded-full bg-white/10 px-4 py-2 text-xs font-medium text-gray-400 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
+      >
+        管理画面
+      </Link>
     </div>
   );
 }
