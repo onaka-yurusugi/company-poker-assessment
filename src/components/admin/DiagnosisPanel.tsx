@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DiagnosisResult } from "@/types";
 import { ADMIN_LABELS } from "@/constants/ui";
 import { formatDateTime } from "@/utils/format";
@@ -10,9 +11,10 @@ import AdviceSection from "@/components/result/AdviceSection";
 
 type DiagnosisPanelProps = {
   readonly results: Readonly<Record<string, DiagnosisResult>>;
+  readonly sessionId: string;
 };
 
-export default function DiagnosisPanel({ results }: DiagnosisPanelProps) {
+export default function DiagnosisPanel({ results, sessionId }: DiagnosisPanelProps) {
   const entries = Object.values(results);
 
   if (entries.length === 0) {
@@ -31,9 +33,17 @@ export default function DiagnosisPanel({ results }: DiagnosisPanelProps) {
           className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm print:break-inside-avoid"
         >
           {/* プレイヤー名ヘッダー */}
-          <h3 className="text-lg font-bold text-foreground">
-            {result.playerName}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-foreground">
+              {result.playerName}
+            </h3>
+            <Link
+              href={`/admin/${sessionId}/${result.playerId}`}
+              className="text-sm text-primary transition-colors hover:underline print:hidden"
+            >
+              個人レポートを見る →
+            </Link>
+          </div>
 
           {/* 診断カード */}
           <DiagnosisCard

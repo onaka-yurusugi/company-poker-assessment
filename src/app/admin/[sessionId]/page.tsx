@@ -82,7 +82,7 @@ export default function AdminSessionDetailPage() {
           <h2 className="mb-4 text-xl font-bold text-foreground">
             {ADMIN_LABELS.diagnosisResults}
           </h2>
-          <DiagnosisPanel results={session.diagnosisResults} />
+          <DiagnosisPanel results={session.diagnosisResults} sessionId={params.sessionId} />
         </section>
 
         {/* ハンド履歴 */}

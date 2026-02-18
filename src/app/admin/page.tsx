@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { SessionSummary } from "@/types";
 import { ADMIN_LABELS } from "@/constants/ui";
 import { usePolling } from "@/hooks/usePolling";
@@ -42,6 +43,16 @@ export default function AdminPage() {
 
       {/* コンテンツ */}
       <div className="mx-auto max-w-3xl px-4 pt-8">
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          トップページに戻る
+        </Link>
+
         <h2 className="mb-4 text-lg font-semibold text-foreground">
           {ADMIN_LABELS.sessionList}
         </h2>
