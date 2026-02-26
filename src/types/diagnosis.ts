@@ -27,7 +27,7 @@ export type DiagnosisResult = {
   readonly axes: readonly DiagnosisAxis[];
   readonly stats: PokerStats;
   readonly advice: string;
-  readonly strengths: readonly string[];
-  readonly growthPotentials: readonly string[];
+  readonly strengths?: readonly string[];
+  readonly growthPotentials?: readonly string[];
   readonly createdAt: string;
 };
