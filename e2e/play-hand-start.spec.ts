@@ -12,6 +12,9 @@ test.describe("hand-start フェーズ", () => {
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await expect(page.getByText("ハンド数を選択")).toBeVisible();
 
+    // BTN選択案内
+    await expect(page.getByText("BTN（ディーラーボタン）を選択してください")).toBeVisible();
+
     // ハンド数選択ボタン
     for (const n of [5, 10, 15, 20]) {
       await expect(page.getByRole("button", { name: `${n}回`, exact: true })).toBeVisible();
@@ -21,8 +24,8 @@ test.describe("hand-start フェーズ", () => {
     await expect(page.getByText("1. Alice")).toBeVisible();
     await expect(page.getByText("2. Bob")).toBeVisible();
 
-    // 配るボタン
-    await expect(page.getByRole("button", { name: "カードを配る" })).toBeVisible();
+    // 配るボタン（BTN未選択のため disabled）
+    await expect(page.getByRole("button", { name: "カードを配る" })).toBeDisabled();
   });
 
   test("ハンド数の選択切り替え", async ({ page }) => {
@@ -46,10 +49,13 @@ test.describe("hand-start フェーズ", () => {
     await page.goto(`/play/${session.id}`);
 
     await expect(page.getByText("ゲーム開始")).toBeVisible();
+
+    // BTN選択（AliceをBTNに）
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // player-intro: 最初のプレイヤー
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    // player-intro: BTN(Alice)の次のプレイヤー = Bob
+    await expect(page.getByText("Bobさん")).toBeVisible();
     await expect(page.getByText("あなたの番です")).toBeVisible();
     await expect(page.getByRole("button", { name: "OK、準備できました" })).toBeVisible();
   });

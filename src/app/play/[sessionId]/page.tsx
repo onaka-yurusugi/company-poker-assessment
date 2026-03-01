@@ -17,14 +17,16 @@ import type {
 import CardSelector from "@/components/player/CardSelector";
 import PlayingCard from "@/components/shared/PlayingCard";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
+import PlayerAddForm from "@/components/play/PlayerAddForm";
 import { ACTION_DISPLAY_MAP } from "@/constants/poker";
-import { STREET_LABELS } from "@/constants/ui";
+import { STREET_LABELS, MESSAGES, BUTTON_LABELS } from "@/constants/ui";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PlayReview from "@/components/play/PlayReview";
 import {
   deriveHandCount,
   deriveFoldedPlayerIds,
   derivePlayersToAct,
+  getFirstActivePlayerAfterButton,
   getStreetFromPhase,
 } from "@/lib/game-state";
 
@@ -59,6 +61,7 @@ export default function PlayPage() {
   const [handCount, setHandCount] = useState(0);
   const [foldedPlayerIds, setFoldedPlayerIds] = useState<Set<string>>(new Set());
   const [playersToAct, setPlayersToAct] = useState<Set<number>>(new Set());
+  const [selectedButtonPlayerId, setSelectedButtonPlayerId] = useState<string | null>(null);
 
   // セッション取得
   const fetchSession = useCallback(async (): Promise<Session | null> => {
@@ -115,6 +118,11 @@ export default function PlayPage() {
   }, [fetchSession, setTotalHands]);
 
   const players: readonly Player[] = session?.players ?? [];
+  const activePlayers = useMemo(
+    () => players.filter((p) => p.isActive),
+    [players]
+  );
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
 
   // 現在のハンド
   const currentHand: Hand | undefined = useMemo(() => {
@@ -148,13 +156,13 @@ export default function PlayPage() {
     [currentHand]
   );
 
-  // フォールドしていないアクティブプレイヤーのindexリスト
+  // アクティブかつフォールドしていないプレイヤーのindexリスト
   const activePlayerIndices = useMemo(() => {
     return players
       .map((_, i) => i)
       .filter((i) => {
         const player = players[i];
-        return player && !foldedPlayerIds.has(player.id);
+        return player && player.isActive && !foldedPlayerIds.has(player.id);
       });
   }, [players, foldedPlayerIds]);
 
@@ -174,17 +182,136 @@ export default function PlayPage() {
     [activePlayerIndices, playersToAct]
   );
 
-  // --- ハンド開始 ---
+  // --- ボタンポジション計算（アクティブプレイヤーのみ循環、IDベース） ---
+  const calcNextButtonPlayerId = (): string | null => {
+    if (!session || session.hands.length === 0) {
+      return selectedButtonPlayerId;
+    }
+    const lastHand = session.hands[session.hands.length - 1];
+    const prevButtonId = lastHand?.buttonPlayerId;
+    const prevButtonIndex = prevButtonId
+      ? players.findIndex((p) => p.id === prevButtonId)
+      : -1;
+    if (prevButtonIndex === -1) return players.find((p) => p.isActive)?.id ?? null;
+    for (let offset = 1; offset <= players.length; offset++) {
+      const idx = (prevButtonIndex + offset) % players.length;
+      const player = players[idx];
+      if (player?.isActive) return player.id;
+    }
+    return null;
+  };
+
+  // --- プレイヤー離脱 ---
+  const handlePlayerDepart = async (playerId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/${playerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      setSession(json.data);
+      // BTN選択中のプレイヤーが離脱した場合、選択解除
+      if (selectedButtonPlayerId === playerId) {
+        setSelectedButtonPlayerId(null);
+      }
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- プレイヤー復帰 ---
+  const handlePlayerReturn = async (playerId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/${playerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      setSession(json.data);
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- プレイヤー並べ替え ---
+  const reorderPlayersApi = async (playerIds: readonly string[]) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerIds }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      // IDベースなので並べ替え時の追従は不要
+      setSession(json.data);
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleMoveUp = async (index: number) => {
+    if (index <= 0) return;
+    const newOrder = [...players];
+    const temp = newOrder[index - 1]!;
+    newOrder[index - 1] = newOrder[index]!;
+    newOrder[index] = temp;
+    await reorderPlayersApi(newOrder.map((p) => p.id));
+  };
+
+  const handleMoveDown = async (index: number) => {
+    if (index >= players.length - 1) return;
+    const newOrder = [...players];
+    const temp = newOrder[index + 1]!;
+    newOrder[index + 1] = newOrder[index]!;
+    newOrder[index] = temp;
+    await reorderPlayersApi(newOrder.map((p) => p.id));
+  };
+
+  // --- ハンド開始（アクティブプレイヤーのみ） ---
   const startHand = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      const playerIds = players.map((p) => p.id);
-      const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: 0, street: "preflop" };
+      const playerIds = activePlayers.map((p) => p.id);
+      const buttonPlayerId = calcNextButtonPlayerId();
+      if (!buttonPlayerId) return;
+      const buttonIndex = players.findIndex((p) => p.id === buttonPlayerId);
+      const activeIndices = players
+        .map((p, i) => ({ player: p, index: i }))
+        .filter(({ player }) => player.isActive)
+        .map(({ index }) => index);
+      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
+      const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, gamePhase: nextPhase, totalHands }),
+        body: JSON.stringify({ playerIds, buttonPlayerId, gamePhase: nextPhase, totalHands }),
       });
       const json = (await res.json()) as ApiResponse<Session>;
       if (!json.success) {
@@ -198,8 +325,9 @@ export default function PlayPage() {
       setHandCount((c) => c + 1);
       setFoldedPlayerIds(new Set());
       setCommunityCards([]);
-      setPlayersToAct(new Set(players.map((_, i) => i)));
-      setPhase({ step: "player-intro", playerIndex: 0, street: "preflop" });
+      setShowAddPlayer(false);
+      setPlayersToAct(new Set(activeIndices));
+      setPhase({ step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" });
     } catch {
       setError("ハンドの開始に失敗しました");
     } finally {
@@ -310,6 +438,10 @@ export default function PlayPage() {
     setIsSubmitting(true);
     setError(null);
     try {
+      const prevButtonId = currentHand?.buttonPlayerId;
+      const rawButtonIdx = prevButtonId ? players.findIndex((p) => p.id === prevButtonId) : -1;
+      const buttonIdx = rawButtonIdx >= 0 ? rawButtonIdx : 0;
+      const firstActive = getFirstActivePlayerAfterButton(buttonIdx, activePlayerIndices, players.length);
       const res = await fetch(
         `/api/sessions/${sessionId}/hands/${currentHandId}`,
         {
@@ -319,8 +451,7 @@ export default function PlayPage() {
             communityCards: communityCards,
             currentStreet: street,
             gamePhase: (() => {
-              const firstActive = activePlayerIndices[0];
-              if (firstActive !== undefined && activePlayerIndices.length >= 2) {
+              if (firstActive !== null && activePlayerIndices.length >= 2) {
                 return { step: "player-intro", playerIndex: firstActive, street } satisfies PersistedGamePhase;
               }
               return { step: "hand-complete" } satisfies PersistedGamePhase;
@@ -337,9 +468,8 @@ export default function PlayPage() {
       setCommunityCards([]);
       setPlayersToAct(new Set(activePlayerIndices));
 
-      // フォールドしていないプレイヤーでラウンド開始
-      const firstActive = activePlayerIndices[0];
-      if (firstActive !== undefined && activePlayerIndices.length >= 2) {
+      // ボタンの次のアクティブプレイヤーからラウンド開始
+      if (firstActive !== null && activePlayerIndices.length >= 2) {
         setPhase({ step: "player-intro", playerIndex: firstActive, street });
       } else {
         // 1人以下しか残っていない → ハンド完了
@@ -499,7 +629,7 @@ export default function PlayPage() {
           </span>
         )}
         <span className="text-sm font-medium text-poker-gold">
-          {players.length}人参加
+          {activePlayers.length}人参加
         </span>
       </div>
 
@@ -543,18 +673,134 @@ export default function PlayPage() {
               </div>
             )}
 
-            <div className="flex flex-col gap-1 text-sm text-gray-300">
-              {players.map((p, i) => (
-                <span key={p.id}>
-                  {i + 1}. {p.name}
-                </span>
-              ))}
+            {/* BTN選択案内（初回ハンドのみ） */}
+            {handCount === 0 && (
+              <p className="text-sm text-gray-400">{MESSAGES.selectButtonPlayer}</p>
+            )}
+
+            {/* プレイヤー一覧（並べ替え + BTN選択 + 離脱/復帰） */}
+            <div className="flex w-full flex-col gap-2">
+              {players.map((p, i) => {
+                const isButton = handCount === 0
+                  ? p.isActive && p.id === selectedButtonPlayerId
+                  : p.isActive && p.id === calcNextButtonPlayerId();
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                      p.isActive ? "bg-white/5" : "bg-white/[0.02] opacity-50"
+                    } ${isButton ? "ring-2 ring-poker-gold" : ""} ${
+                      handCount === 0 && p.isActive ? "cursor-pointer" : ""
+                    }`}
+                    onClick={() => {
+                      if (handCount === 0 && p.isActive) {
+                        setSelectedButtonPlayerId(p.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* 並べ替え矢印 */}
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleMoveUp(i); }}
+                          disabled={i === 0 || isSubmitting}
+                          className="text-xs text-gray-400 hover:text-white disabled:opacity-20"
+                          aria-label={`${p.name}を上へ`}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleMoveDown(i); }}
+                          disabled={i === players.length - 1 || isSubmitting}
+                          className="text-xs text-gray-400 hover:text-white disabled:opacity-20"
+                          aria-label={`${p.name}を下へ`}
+                        >
+                          ▼
+                        </button>
+                      </div>
+
+                      {/* BTN選択インジケータ（初回ハンドのみ） */}
+                      {handCount === 0 && p.isActive && (
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                          isButton
+                            ? "border-poker-gold bg-poker-gold"
+                            : "border-gray-500"
+                        }`}>
+                          {isButton && <span className="text-xs text-black">✓</span>}
+                        </span>
+                      )}
+
+                      <span
+                        className={`text-sm ${
+                          !p.isActive
+                            ? "text-gray-500 line-through"
+                            : isButton
+                              ? "font-bold text-poker-gold"
+                              : "text-gray-300"
+                        }`}
+                      >
+                        {i + 1}. {p.name}
+                        {isButton ? " (BTN)" : ""}
+                        {!p.isActive ? " (離脱中)" : ""}
+                      </span>
+                    </div>
+
+                    {/* 離脱/復帰ボタン */}
+                    {p.isActive ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void handlePlayerDepart(p.id); }}
+                        disabled={activePlayers.length <= 2 || isSubmitting}
+                        className="text-xs text-gray-400 transition-colors hover:text-red-400 disabled:opacity-30"
+                      >
+                        {BUTTON_LABELS.departPlayer}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void handlePlayerReturn(p.id); }}
+                        disabled={isSubmitting}
+                        className="text-xs text-gray-400 transition-colors hover:text-green-400"
+                      >
+                        {BUTTON_LABELS.returnPlayer}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* プレイヤー追加エリア */}
+            {showAddPlayer ? (
+              <PlayerAddForm
+                sessionId={sessionId}
+                existingPlayers={players}
+                onAdded={(updatedSession) => {
+                  setSession(updatedSession);
+                  setShowAddPlayer(false);
+                }}
+                onCancel={() => setShowAddPlayer(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAddPlayer(true)}
+                className="w-full rounded-lg border-2 border-dashed border-gray-600 px-4 py-3 text-sm text-gray-400 transition-colors hover:border-poker-gold/50 hover:text-poker-gold"
+              >
+                + {BUTTON_LABELS.addPlayer}
+              </button>
+            )}
 
             <button
               type="button"
               onClick={startHand}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                activePlayers.length < 2 ||
+                (handCount === 0 && selectedButtonPlayerId === null)
+              }
               className="w-full rounded-lg bg-poker-gold px-6 py-4 text-lg font-bold text-black transition-all hover:bg-yellow-500 disabled:opacity-50"
             >
               {isSubmitting ? "準備中..." : "カードを配る"}
@@ -937,18 +1183,20 @@ export default function PlayPage() {
             <p className="text-gray-300">各プレイヤーの結果を確認してください</p>
 
             <div className="flex w-full flex-col gap-3">
-              {players.map((player) => (
-                <a
-                  key={player.id}
-                  href={`/result/${sessionId}/${player.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-lg border border-white/20 bg-white/5 px-4 py-4 text-left transition-all hover:bg-white/10"
-                >
-                  <span className="text-lg font-medium text-white">{player.name}</span>
-                  <span className="text-sm text-poker-gold">結果を見る →</span>
-                </a>
-              ))}
+              {players
+                .filter((player) => session.diagnosisResults[player.id])
+                .map((player) => (
+                  <a
+                    key={player.id}
+                    href={`/result/${sessionId}/${player.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded-lg border border-white/20 bg-white/5 px-4 py-4 text-left transition-all hover:bg-white/10"
+                  >
+                    <span className="text-lg font-medium text-white">{player.name}</span>
+                    <span className="text-sm text-poker-gold">結果を見る →</span>
+                  </a>
+                ))}
             </div>
 
             <button

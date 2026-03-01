@@ -25,6 +25,7 @@ export type AddPlayerResponse = Session;
 // POST /api/sessions/[sessionId]/hands
 export type CreateHandRequest = {
   readonly playerIds: readonly string[];
+  readonly buttonPlayerId: string;
   readonly gamePhase?: PersistedGamePhase;
   readonly totalHands?: number;
 };
@@ -61,6 +62,18 @@ export type SetHoleCardsResponse = Session;
 export type DiagnoseResponse = {
   readonly results: Readonly<Record<string, DiagnosisResult>>;
 };
+
+// PUT /api/sessions/[sessionId]/players/reorder
+export type ReorderPlayersRequest = {
+  readonly playerIds: readonly string[];
+};
+export type ReorderPlayersResponse = Session;
+
+// PATCH /api/sessions/[sessionId]/players/[playerId]
+export type UpdatePlayerRequest = {
+  readonly isActive: boolean;
+};
+export type UpdatePlayerResponse = Session;
 
 // GET /api/admin/sessions
 export type SessionSummary = {

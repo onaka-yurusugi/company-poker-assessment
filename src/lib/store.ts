@@ -18,7 +18,22 @@ const COLLECTION = "sessions";
 const sessionsCollection = () => getDb().collection(COLLECTION);
 const sessionDoc = (sessionId: string) => sessionsCollection().doc(sessionId);
 
-const toSession = (data: FirebaseFirestore.DocumentData): Session => data as Session;
+const toSession = (data: FirebaseFirestore.DocumentData): Session => {
+  const raw = data as Session;
+  // 後方互換: isActive フィールドがない既存データは active 扱い
+  const players = raw.players.map((p) => ({
+    ...p,
+    isActive: (p as { isActive?: boolean }).isActive ?? true,
+  }));
+  // 後方互換: buttonPlayerIndex → buttonPlayerId 変換
+  const hands = raw.hands.map((h) => {
+    if (h.buttonPlayerId) return h;
+    const oldIndex = (h as unknown as { buttonPlayerIndex?: number }).buttonPlayerIndex ?? 0;
+    const buttonPlayer = players[oldIndex];
+    return { ...h, buttonPlayerId: buttonPlayer?.id ?? players[0]?.id ?? "" };
+  });
+  return { ...raw, players, hands };
+};
 
 // --- 内部ヘルパー ---
 
@@ -95,6 +110,7 @@ export const addPlayer = async (
     name,
     seatNumber,
     joinedAt: new Date().toISOString(),
+    isActive: true,
   };
   const updatedPlayers = [...session.players, newPlayer];
   await sessionDoc(sessionId).update({ players: updatedPlayers });
@@ -102,9 +118,58 @@ export const addPlayer = async (
   return { ...session, players: updatedPlayers };
 };
 
+export const updatePlayerActive = async (
+  sessionId: string,
+  playerId: string,
+  isActive: boolean
+): Promise<Session | undefined> => {
+  const doc = await sessionDoc(sessionId).get();
+  if (!doc.exists) return undefined;
+
+  const session = toSession(doc.data()!);
+  const playerIndex = session.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) return undefined;
+
+  const updatedPlayers = session.players.map((p) =>
+    p.id === playerId ? { ...p, isActive } : p
+  );
+  await sessionDoc(sessionId).update({ players: serializeForFirestore(updatedPlayers) });
+
+  return { ...session, players: updatedPlayers };
+};
+
+export const reorderPlayers = async (
+  sessionId: string,
+  playerIds: readonly string[]
+): Promise<Session | undefined> => {
+  const doc = await sessionDoc(sessionId).get();
+  if (!doc.exists) return undefined;
+
+  const session = toSession(doc.data()!);
+
+  if (playerIds.length !== session.players.length) return undefined;
+
+  const playerMap = new Map(session.players.map((p) => [p.id, p]));
+  const reordered = playerIds.map((pid, i) => {
+    const player = playerMap.get(pid);
+    if (!player) return null;
+    return { ...player, seatNumber: i + 1 };
+  });
+
+  if (reordered.some((p) => p === null)) return undefined;
+
+  const updatedPlayers = reordered as typeof session.players;
+  await sessionDoc(sessionId).update({
+    players: serializeForFirestore(updatedPlayers),
+  });
+
+  return { ...session, players: updatedPlayers };
+};
+
 export const createHand = async (
   sessionId: string,
   playerIds: readonly string[],
+  buttonPlayerId: string,
   gamePhase?: PersistedGamePhase,
   totalHands?: number
 ): Promise<Session | undefined> => {
@@ -121,6 +186,7 @@ export const createHand = async (
   const hand = {
     id: nanoid(),
     handNumber,
+    buttonPlayerId,
     communityCards: [],
     playerHands,
     actions: [],

@@ -10,7 +10,8 @@ import {
 } from "./helpers/play-flow";
 
 test.describe("dealer-turn フェーズ", () => {
-  // hand-start → Alice プリフロップ → Bob プリフロップ → dealer-turn (flop) まで進める
+  // hand-start → Bob プリフロップ → Alice プリフロップ → dealer-turn (flop) まで進める
+  // Hand 1: BTN=Alice(index 0) → Bob(index 1)が先に行動
   async function setupToDealerTurn(page: import("@playwright/test").Page) {
     const { session } = createTwoPlayerSession();
     await setupApiMocks(page, session);
@@ -18,17 +19,18 @@ test.describe("dealer-turn フェーズ", () => {
 
     // hand-start
     await expect(page.getByText("ゲーム開始")).toBeVisible();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
+
+    // Bob: intro → cards → action → turn-complete (BTNの次 = 最初に行動)
+    await goThroughPlayerIntro(page, "Bob");
+    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+    await chooseAction(page, "チェック");
+    await proceedFromTurnComplete(page);
 
     // Alice: intro → cards → action → turn-complete
     await goThroughPlayerIntro(page, "Alice");
     await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
-    await chooseAction(page, "チェック");
-    await proceedFromTurnComplete(page);
-
-    // Bob: intro → cards → action → turn-complete
-    await goThroughPlayerIntro(page, "Bob");
-    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
@@ -50,8 +52,8 @@ test.describe("dealer-turn フェーズ", () => {
     await expect(page.getByRole("button", { name: "フロップを確定" })).toBeVisible();
     await page.getByRole("button", { name: "フロップを確定" }).click();
 
-    // 次のプレイヤーの player-intro に遷移
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    // BTNの次のプレイヤー(Bob)の player-intro に遷移
+    await expect(page.getByText("Bobさん")).toBeVisible();
     await expect(page.getByText("あなたの番です")).toBeVisible();
   });
 });

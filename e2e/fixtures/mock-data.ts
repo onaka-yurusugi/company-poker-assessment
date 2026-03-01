@@ -17,6 +17,7 @@ type Player = {
   readonly name: string;
   readonly seatNumber: number;
   readonly joinedAt: string;
+  readonly isActive: boolean;
 };
 
 type Action = {
@@ -35,6 +36,7 @@ type PlayerHand = {
 type Hand = {
   readonly id: string;
   readonly handNumber: number;
+  readonly buttonPlayerId: string;
   readonly communityCards: readonly Card[];
   readonly playerHands: readonly PlayerHand[];
   readonly actions: readonly Action[];
@@ -111,6 +113,7 @@ export function createMockPlayer(overrides?: Partial<Player>): Player {
     seatNumber: counter,
     joinedAt: new Date().toISOString(),
     ...overrides,
+    isActive: overrides?.isActive ?? true,
   };
 }
 
@@ -138,7 +141,27 @@ export function createMockHand(overrides?: Partial<Hand>): Hand {
     currentStreet: "preflop",
     isComplete: false,
     ...overrides,
+    buttonPlayerId: overrides?.buttonPlayerId ?? "",
   };
+}
+
+/** 3人プレイヤーの初期セッション（hands空） */
+export function createThreePlayerSession(): {
+  session: Session;
+  player1: Player;
+  player2: Player;
+  player3: Player;
+} {
+  resetCounter();
+  const player1 = createMockPlayer({ id: "p1", name: "Alice", seatNumber: 1 });
+  const player2 = createMockPlayer({ id: "p2", name: "Bob", seatNumber: 2 });
+  const player3 = createMockPlayer({ id: "p3", name: "Charlie", seatNumber: 3 });
+  const session = createMockSession({
+    id: "test-session-3p",
+    players: [player1, player2, player3],
+    status: "waiting",
+  });
+  return { session, player1, player2, player3 };
 }
 
 export function createMockDiagnosisResult(

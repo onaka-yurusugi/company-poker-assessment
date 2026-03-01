@@ -19,20 +19,22 @@ test.describe("統合テスト: 2人で1ハンド完走", () => {
     await page.goto(`/play/${session.id}`);
 
     // === hand-start ===
+    // Hand 1: BTN=Alice(index 0) → Bob(index 1)が先に行動
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "5回", exact: true }).click();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
     // === プリフロップ ===
-    // Alice
-    await goThroughPlayerIntro(page, "Alice");
-    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
+    // Bob (BTNの次 = 最初に行動)
+    await goThroughPlayerIntro(page, "Bob");
+    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
-    // Bob
-    await goThroughPlayerIntro(page, "Bob");
-    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+    // Alice
+    await goThroughPlayerIntro(page, "Alice");
+    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
@@ -48,28 +50,28 @@ test.describe("統合テスト: 2人で1ハンド完走", () => {
       "フロップ",
     );
 
+    // Bob フロップ (BTNの次 = 最初に行動)
+    await playPostflopTurn(page, "Bob", "チェック");
     // Alice フロップ
     await playPostflopTurn(page, "Alice", "チェック");
-    // Bob フロップ
-    await playPostflopTurn(page, "Bob", "チェック");
 
     // === ターン ===
     await expect(page.getByText("ディーラー: ターン")).toBeVisible();
     await inputCommunityCards(page, [{ suit: "spade", rank: "7" }], "ターン");
 
-    // Alice ターン
-    await playPostflopTurn(page, "Alice", "チェック");
     // Bob ターン
     await playPostflopTurn(page, "Bob", "チェック");
+    // Alice ターン
+    await playPostflopTurn(page, "Alice", "チェック");
 
     // === リバー ===
     await expect(page.getByText("ディーラー: リバー")).toBeVisible();
     await inputCommunityCards(page, [{ suit: "heart", rank: "6" }], "リバー");
 
-    // Alice リバー
-    await playPostflopTurn(page, "Alice", "チェック");
     // Bob リバー
     await playPostflopTurn(page, "Bob", "チェック");
+    // Alice リバー
+    await playPostflopTurn(page, "Alice", "チェック");
 
     // === ハンド完了 ===
     await expect(page.getByText("Hand 1 完了")).toBeVisible();

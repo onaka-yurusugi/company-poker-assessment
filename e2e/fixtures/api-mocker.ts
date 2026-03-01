@@ -11,6 +11,7 @@ type MutablePlayerHand = {
 type MutableHand = {
   id: string;
   handNumber: number;
+  buttonPlayerId: string;
   communityCards: Card[];
   playerHands: MutablePlayerHand[];
   actions: Array<{
@@ -89,10 +90,33 @@ export async function setupApiMocks(
       name: body.name,
       seatNumber: body.seatNumber,
       joinedAt: new Date().toISOString(),
+      isActive: true,
     };
     state.players.push(newPlayer);
     return route.fulfill({
       status: 201,
+      contentType: "application/json",
+      body: JSON.stringify(successJson(toSession(state))),
+    });
+  });
+
+  // --- PUT /api/sessions/{id}/players/reorder (並べ替え) ---
+  await page.route(`**/api/sessions/${state.id}/players/reorder`, async (route: Route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    const body = route.request().postDataJSON() as { playerIds: readonly string[] };
+    const playerMap = new Map(state.players.map((p) => [p.id, p]));
+    const reordered: Player[] = [];
+    for (let i = 0; i < body.playerIds.length; i++) {
+      const pid = body.playerIds[i];
+      if (!pid) continue;
+      const player = playerMap.get(pid);
+      if (player) {
+        reordered.push({ ...player, seatNumber: i + 1 });
+      }
+    }
+    state.players = reordered;
+    return route.fulfill({
+      status: 200,
       contentType: "application/json",
       body: JSON.stringify(successJson(toSession(state))),
     });
@@ -168,11 +192,12 @@ export async function setupApiMocks(
   await page.route(new RegExp(`/api/sessions/${state.id}/hands$`), async (route: Route) => {
     const method = route.request().method();
     if (method === "POST") {
-      const body = route.request().postDataJSON() as { playerIds: readonly string[] };
+      const body = route.request().postDataJSON() as { playerIds: readonly string[]; buttonPlayerId: string };
       handIdCounter++;
       const newHand: MutableHand = {
         id: `hand-${handIdCounter}`,
         handNumber: handIdCounter,
+        buttonPlayerId: body.buttonPlayerId ?? "",
         communityCards: [],
         playerHands: body.playerIds.map((pid) => ({
           playerId: pid,
