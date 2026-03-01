@@ -25,7 +25,14 @@ const toSession = (data: FirebaseFirestore.DocumentData): Session => {
     ...p,
     isActive: (p as { isActive?: boolean }).isActive ?? true,
   }));
-  return { ...raw, players };
+  // 後方互換: buttonPlayerIndex → buttonPlayerId 変換
+  const hands = raw.hands.map((h) => {
+    if (h.buttonPlayerId) return h;
+    const oldIndex = (h as unknown as { buttonPlayerIndex?: number }).buttonPlayerIndex ?? 0;
+    const buttonPlayer = players[oldIndex];
+    return { ...h, buttonPlayerId: buttonPlayer?.id ?? players[0]?.id ?? "" };
+  });
+  return { ...raw, players, hands };
 };
 
 // --- 内部ヘルパー ---
@@ -162,7 +169,7 @@ export const reorderPlayers = async (
 export const createHand = async (
   sessionId: string,
   playerIds: readonly string[],
-  buttonPlayerIndex: number,
+  buttonPlayerId: string,
   gamePhase?: PersistedGamePhase,
   totalHands?: number
 ): Promise<Session | undefined> => {
@@ -179,7 +186,7 @@ export const createHand = async (
   const hand = {
     id: nanoid(),
     handNumber,
-    buttonPlayerIndex,
+    buttonPlayerId,
     communityCards: [],
     playerHands,
     actions: [],

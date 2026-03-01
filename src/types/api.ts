@@ -25,7 +25,7 @@ export type AddPlayerResponse = Session;
 // POST /api/sessions/[sessionId]/hands
 export type CreateHandRequest = {
   readonly playerIds: readonly string[];
-  readonly buttonPlayerIndex: number;
+  readonly buttonPlayerId: string;
   readonly gamePhase?: PersistedGamePhase;
   readonly totalHands?: number;
 };

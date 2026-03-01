@@ -36,7 +36,7 @@ type PlayerHand = {
 type Hand = {
   readonly id: string;
   readonly handNumber: number;
-  readonly buttonPlayerIndex: number;
+  readonly buttonPlayerId: string;
   readonly communityCards: readonly Card[];
   readonly playerHands: readonly PlayerHand[];
   readonly actions: readonly Action[];
@@ -141,7 +141,7 @@ export function createMockHand(overrides?: Partial<Hand>): Hand {
     currentStreet: "preflop",
     isComplete: false,
     ...overrides,
-    buttonPlayerIndex: overrides?.buttonPlayerIndex ?? 0,
+    buttonPlayerId: overrides?.buttonPlayerId ?? "",
   };
 }
 
