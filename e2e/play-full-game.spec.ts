@@ -22,6 +22,7 @@ test.describe("統合テスト: 2人で1ハンド完走", () => {
     // Hand 1: BTN=Alice(index 0) → Bob(index 1)が先に行動
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "5回", exact: true }).click();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
     // === プリフロップ ===

@@ -11,6 +11,7 @@ test.describe("プレイヤーターン", () => {
     await setupApiMocks(page, session);
     await page.goto(`/play/${session.id}`);
     await expect(page.getByText("ゲーム開始")).toBeVisible();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
     await expect(page.getByText("Bobさん")).toBeVisible();
   }
