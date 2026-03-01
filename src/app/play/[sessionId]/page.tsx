@@ -25,6 +25,7 @@ import {
   deriveHandCount,
   deriveFoldedPlayerIds,
   derivePlayersToAct,
+  getFirstActivePlayerAfterButton,
   getStreetFromPhase,
 } from "@/lib/game-state";
 
@@ -174,17 +175,28 @@ export default function PlayPage() {
     [activePlayerIndices, playersToAct]
   );
 
+  // --- ボタンポジション計算 ---
+  const calcNextButtonIndex = (): number => {
+    if (!session || session.hands.length === 0) return 0;
+    const lastHand = session.hands[session.hands.length - 1];
+    const prevButton = lastHand?.buttonPlayerIndex ?? 0;
+    return (prevButton + 1) % players.length;
+  };
+
   // --- ハンド開始 ---
   const startHand = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
       const playerIds = players.map((p) => p.id);
-      const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: 0, street: "preflop" };
+      const buttonPlayerIndex = calcNextButtonIndex();
+      const allIndices = players.map((_, i) => i);
+      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonPlayerIndex, allIndices, players.length) ?? 0;
+      const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, gamePhase: nextPhase, totalHands }),
+        body: JSON.stringify({ playerIds, buttonPlayerIndex, gamePhase: nextPhase, totalHands }),
       });
       const json = (await res.json()) as ApiResponse<Session>;
       if (!json.success) {
@@ -199,7 +211,7 @@ export default function PlayPage() {
       setFoldedPlayerIds(new Set());
       setCommunityCards([]);
       setPlayersToAct(new Set(players.map((_, i) => i)));
-      setPhase({ step: "player-intro", playerIndex: 0, street: "preflop" });
+      setPhase({ step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" });
     } catch {
       setError("ハンドの開始に失敗しました");
     } finally {
@@ -310,6 +322,8 @@ export default function PlayPage() {
     setIsSubmitting(true);
     setError(null);
     try {
+      const buttonIdx = currentHand?.buttonPlayerIndex ?? 0;
+      const firstActive = getFirstActivePlayerAfterButton(buttonIdx, activePlayerIndices, players.length);
       const res = await fetch(
         `/api/sessions/${sessionId}/hands/${currentHandId}`,
         {
@@ -319,8 +333,7 @@ export default function PlayPage() {
             communityCards: communityCards,
             currentStreet: street,
             gamePhase: (() => {
-              const firstActive = activePlayerIndices[0];
-              if (firstActive !== undefined && activePlayerIndices.length >= 2) {
+              if (firstActive !== null && activePlayerIndices.length >= 2) {
                 return { step: "player-intro", playerIndex: firstActive, street } satisfies PersistedGamePhase;
               }
               return { step: "hand-complete" } satisfies PersistedGamePhase;
@@ -337,9 +350,8 @@ export default function PlayPage() {
       setCommunityCards([]);
       setPlayersToAct(new Set(activePlayerIndices));
 
-      // フォールドしていないプレイヤーでラウンド開始
-      const firstActive = activePlayerIndices[0];
-      if (firstActive !== undefined && activePlayerIndices.length >= 2) {
+      // ボタンの次のアクティブプレイヤーからラウンド開始
+      if (firstActive !== null && activePlayerIndices.length >= 2) {
         setPhase({ step: "player-intro", playerIndex: firstActive, street });
       } else {
         // 1人以下しか残っていない → ハンド完了
@@ -544,11 +556,14 @@ export default function PlayPage() {
             )}
 
             <div className="flex flex-col gap-1 text-sm text-gray-300">
-              {players.map((p, i) => (
-                <span key={p.id}>
-                  {i + 1}. {p.name}
-                </span>
-              ))}
+              {players.map((p, i) => {
+                const isButton = i === calcNextButtonIndex();
+                return (
+                  <span key={p.id} className={isButton ? "font-bold text-poker-gold" : ""}>
+                    {i + 1}. {p.name}{isButton ? " (BTN)" : ""}
+                  </span>
+                );
+              })}
             </div>
 
             <button

@@ -11,6 +11,7 @@ type MutablePlayerHand = {
 type MutableHand = {
   id: string;
   handNumber: number;
+  buttonPlayerIndex: number;
   communityCards: Card[];
   playerHands: MutablePlayerHand[];
   actions: Array<{
@@ -168,11 +169,12 @@ export async function setupApiMocks(
   await page.route(new RegExp(`/api/sessions/${state.id}/hands$`), async (route: Route) => {
     const method = route.request().method();
     if (method === "POST") {
-      const body = route.request().postDataJSON() as { playerIds: readonly string[] };
+      const body = route.request().postDataJSON() as { playerIds: readonly string[]; buttonPlayerIndex: number };
       handIdCounter++;
       const newHand: MutableHand = {
         id: `hand-${handIdCounter}`,
         handNumber: handIdCounter,
+        buttonPlayerIndex: body.buttonPlayerIndex ?? 0,
         communityCards: [],
         playerHands: body.playerIds.map((pid) => ({
           playerId: pid,

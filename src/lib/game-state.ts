@@ -97,6 +97,25 @@ export const derivePlayersToAct = (
   return toAct;
 };
 
+/**
+ * ボタンの次のアクティブプレイヤーインデックスを返す。
+ * buttonIndex の次の位置から循環探索し、最初に見つかったアクティブプレイヤーを返す。
+ */
+export const getFirstActivePlayerAfterButton = (
+  buttonIndex: number,
+  activePlayerIndices: readonly number[],
+  playerCount: number
+): number | null => {
+  if (activePlayerIndices.length === 0) return null;
+
+  const activeSet = new Set(activePlayerIndices);
+  for (let offset = 1; offset <= playerCount; offset++) {
+    const idx = (buttonIndex + offset) % playerCount;
+    if (activeSet.has(idx)) return idx;
+  }
+  return null;
+};
+
 /** GamePhaseからストリートを抽出する */
 export const getStreetFromPhase = (
   phase: { readonly step: string; readonly street?: Street }
