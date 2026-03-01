@@ -61,7 +61,7 @@ export default function PlayPage() {
   const [handCount, setHandCount] = useState(0);
   const [foldedPlayerIds, setFoldedPlayerIds] = useState<Set<string>>(new Set());
   const [playersToAct, setPlayersToAct] = useState<Set<number>>(new Set());
-  const [selectedButtonIndex, setSelectedButtonIndex] = useState<number | null>(null);
+  const [selectedButtonPlayerId, setSelectedButtonPlayerId] = useState<string | null>(null);
 
   // セッション取得
   const fetchSession = useCallback(async (): Promise<Session | null> => {
@@ -182,19 +182,23 @@ export default function PlayPage() {
     [activePlayerIndices, playersToAct]
   );
 
-  // --- ボタンポジション計算（アクティブプレイヤーのみ循環） ---
-  const calcNextButtonIndex = (): number => {
+  // --- ボタンポジション計算（アクティブプレイヤーのみ循環、IDベース） ---
+  const calcNextButtonPlayerId = (): string | null => {
     if (!session || session.hands.length === 0) {
-      return selectedButtonIndex ?? -1;
+      return selectedButtonPlayerId;
     }
     const lastHand = session.hands[session.hands.length - 1];
-    const prevButton = lastHand?.buttonPlayerIndex ?? 0;
+    const prevButtonId = lastHand?.buttonPlayerId;
+    const prevButtonIndex = prevButtonId
+      ? players.findIndex((p) => p.id === prevButtonId)
+      : -1;
+    if (prevButtonIndex === -1) return players.find((p) => p.isActive)?.id ?? null;
     for (let offset = 1; offset <= players.length; offset++) {
-      const idx = (prevButton + offset) % players.length;
+      const idx = (prevButtonIndex + offset) % players.length;
       const player = players[idx];
-      if (player?.isActive) return idx;
+      if (player?.isActive) return player.id;
     }
-    return 0;
+    return null;
   };
 
   // --- プレイヤー離脱 ---
@@ -214,11 +218,8 @@ export default function PlayPage() {
       }
       setSession(json.data);
       // BTN選択中のプレイヤーが離脱した場合、選択解除
-      if (selectedButtonIndex !== null) {
-        const selectedId = players[selectedButtonIndex]?.id;
-        if (selectedId === playerId) {
-          setSelectedButtonIndex(null);
-        }
+      if (selectedButtonPlayerId === playerId) {
+        setSelectedButtonPlayerId(null);
       }
     } catch {
       setError(MESSAGES.unexpectedError);
@@ -265,14 +266,7 @@ export default function PlayPage() {
         setError(json.error);
         return;
       }
-      // BTN選択中ならプレイヤーIDベースで新しいインデックスに追従
-      if (selectedButtonIndex !== null) {
-        const selectedPlayerId = players[selectedButtonIndex]?.id;
-        if (selectedPlayerId) {
-          const newIndex = json.data.players.findIndex((p) => p.id === selectedPlayerId);
-          setSelectedButtonIndex(newIndex >= 0 ? newIndex : null);
-        }
-      }
+      // IDベースなので並べ替え時の追従は不要
       setSession(json.data);
     } catch {
       setError(MESSAGES.unexpectedError);
@@ -305,17 +299,19 @@ export default function PlayPage() {
     setIsSubmitting(true);
     try {
       const playerIds = activePlayers.map((p) => p.id);
-      const buttonPlayerIndex = calcNextButtonIndex();
+      const buttonPlayerId = calcNextButtonPlayerId();
+      if (!buttonPlayerId) return;
+      const buttonIndex = players.findIndex((p) => p.id === buttonPlayerId);
       const activeIndices = players
         .map((p, i) => ({ player: p, index: i }))
         .filter(({ player }) => player.isActive)
         .map(({ index }) => index);
-      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonPlayerIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
+      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
       const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, buttonPlayerIndex, gamePhase: nextPhase, totalHands }),
+        body: JSON.stringify({ playerIds, buttonPlayerId, gamePhase: nextPhase, totalHands }),
       });
       const json = (await res.json()) as ApiResponse<Session>;
       if (!json.success) {
@@ -442,7 +438,9 @@ export default function PlayPage() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const buttonIdx = currentHand?.buttonPlayerIndex ?? 0;
+      const prevButtonId = currentHand?.buttonPlayerId;
+      const rawButtonIdx = prevButtonId ? players.findIndex((p) => p.id === prevButtonId) : -1;
+      const buttonIdx = rawButtonIdx >= 0 ? rawButtonIdx : 0;
       const firstActive = getFirstActivePlayerAfterButton(buttonIdx, activePlayerIndices, players.length);
       const res = await fetch(
         `/api/sessions/${sessionId}/hands/${currentHandId}`,
@@ -684,8 +682,8 @@ export default function PlayPage() {
             <div className="flex w-full flex-col gap-2">
               {players.map((p, i) => {
                 const isButton = handCount === 0
-                  ? p.isActive && i === selectedButtonIndex
-                  : p.isActive && i === calcNextButtonIndex();
+                  ? p.isActive && p.id === selectedButtonPlayerId
+                  : p.isActive && p.id === calcNextButtonPlayerId();
                 return (
                   <div
                     key={p.id}
@@ -696,7 +694,7 @@ export default function PlayPage() {
                     }`}
                     onClick={() => {
                       if (handCount === 0 && p.isActive) {
-                        setSelectedButtonIndex(i);
+                        setSelectedButtonPlayerId(p.id);
                       }
                     }}
                   >
@@ -801,7 +799,7 @@ export default function PlayPage() {
               disabled={
                 isSubmitting ||
                 activePlayers.length < 2 ||
-                (handCount === 0 && selectedButtonIndex === null)
+                (handCount === 0 && selectedButtonPlayerId === null)
               }
               className="w-full rounded-lg bg-poker-gold px-6 py-4 text-lg font-bold text-black transition-all hover:bg-yellow-500 disabled:opacity-50"
             >
