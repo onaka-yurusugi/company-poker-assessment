@@ -5,19 +5,20 @@ import { selectCard } from "./helpers/card-selector";
 
 test.describe("プレイヤーターン", () => {
   // 各テスト共通: hand-start → "カードを配る" → player-intro まで進める
+  // Hand 1: BTN=Alice(index 0) → 最初に行動するのは Bob(index 1)
   async function setupToPlayerIntro(page: import("@playwright/test").Page) {
     const { session } = createTwoPlayerSession();
     await setupApiMocks(page, session);
     await page.goto(`/play/${session.id}`);
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "カードを配る" }).click();
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    await expect(page.getByText("Bobさん")).toBeVisible();
   }
 
   test("player-intro: プライバシー画面の表示", async ({ page }) => {
     await setupToPlayerIntro(page);
 
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    await expect(page.getByText("Bobさん")).toBeVisible();
     await expect(page.getByText("あなたの番です")).toBeVisible();
     await expect(
       page.getByText("他の人に画面が見えないことを確認してから")
@@ -31,7 +32,7 @@ test.describe("プレイヤーターン", () => {
     await page.getByRole("button", { name: "OK、準備できました" }).click();
 
     // card-input フェーズ
-    await expect(page.getByText("Aliceさんのカード")).toBeVisible();
+    await expect(page.getByText("Bobさんのカード")).toBeVisible();
     await expect(page.getByText("配られたカードを選択してください")).toBeVisible();
 
     // カード2枚選択
@@ -97,7 +98,7 @@ test.describe("プレイヤーターン", () => {
     await page.getByRole("button", { name: "チェック" }).click();
 
     await expect(page.getByText("記録完了！")).toBeVisible();
-    await expect(page.getByText(/Bob/)).toBeVisible();
+    await expect(page.getByText(/Alice/)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "次の人の準備ができました" })
     ).toBeVisible();
