@@ -90,6 +90,7 @@ export async function setupApiMocks(
       name: body.name,
       seatNumber: body.seatNumber,
       joinedAt: new Date().toISOString(),
+      isActive: true,
     };
     state.players.push(newPlayer);
     return route.fulfill({

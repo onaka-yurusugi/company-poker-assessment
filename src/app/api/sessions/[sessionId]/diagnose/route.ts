@@ -34,7 +34,14 @@ export const POST = async (_request: NextRequest, { params }: RouteParams) => {
 
     const results: Record<string, DiagnosisResult> = {};
 
-    for (const player of session.players) {
+    // ハンドに1回以上参加したプレイヤーのみ診断対象
+    const playersWithHands = session.players.filter((player) =>
+      session.hands.some((hand) =>
+        hand.playerHands.some((ph) => ph.playerId === player.id)
+      )
+    );
+
+    for (const player of playersWithHands) {
       const stats = calculatePokerStats(player.id, session.hands);
       const pokerStyle = determinePokerStyle(stats);
       const businessType = getBusinessType(pokerStyle);

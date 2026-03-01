@@ -57,11 +57,11 @@ export const derivePlayersToAct = (
     }
   }
 
-  // アクティブプレイヤーのindexセット
+  // アクティブプレイヤーのindexセット（isActive かつ 未フォールド）
   const activeIndices = new Set<number>();
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
-    if (player && !foldedIds.has(player.id)) {
+    if (player && player.isActive && !foldedIds.has(player.id)) {
       activeIndices.add(i);
     }
   }

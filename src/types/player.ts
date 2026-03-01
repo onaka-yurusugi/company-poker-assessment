@@ -3,4 +3,5 @@ export type Player = {
   readonly name: string;
   readonly seatNumber: number;
   readonly joinedAt: string;
+  readonly isActive: boolean;
 };
