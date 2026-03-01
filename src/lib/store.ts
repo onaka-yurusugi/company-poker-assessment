@@ -131,6 +131,34 @@ export const updatePlayerActive = async (
   return { ...session, players: updatedPlayers };
 };
 
+export const reorderPlayers = async (
+  sessionId: string,
+  playerIds: readonly string[]
+): Promise<Session | undefined> => {
+  const doc = await sessionDoc(sessionId).get();
+  if (!doc.exists) return undefined;
+
+  const session = toSession(doc.data()!);
+
+  if (playerIds.length !== session.players.length) return undefined;
+
+  const playerMap = new Map(session.players.map((p) => [p.id, p]));
+  const reordered = playerIds.map((pid, i) => {
+    const player = playerMap.get(pid);
+    if (!player) return null;
+    return { ...player, seatNumber: i + 1 };
+  });
+
+  if (reordered.some((p) => p === null)) return undefined;
+
+  const updatedPlayers = reordered as typeof session.players;
+  await sessionDoc(sessionId).update({
+    players: serializeForFirestore(updatedPlayers),
+  });
+
+  return { ...session, players: updatedPlayers };
+};
+
 export const createHand = async (
   sessionId: string,
   playerIds: readonly string[],

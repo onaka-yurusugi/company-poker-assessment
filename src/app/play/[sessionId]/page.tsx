@@ -61,6 +61,7 @@ export default function PlayPage() {
   const [handCount, setHandCount] = useState(0);
   const [foldedPlayerIds, setFoldedPlayerIds] = useState<Set<string>>(new Set());
   const [playersToAct, setPlayersToAct] = useState<Set<number>>(new Set());
+  const [selectedButtonIndex, setSelectedButtonIndex] = useState<number | null>(null);
 
   // セッション取得
   const fetchSession = useCallback(async (): Promise<Session | null> => {
@@ -184,7 +185,7 @@ export default function PlayPage() {
   // --- ボタンポジション計算（アクティブプレイヤーのみ循環） ---
   const calcNextButtonIndex = (): number => {
     if (!session || session.hands.length === 0) {
-      return players.findIndex((p) => p.isActive);
+      return selectedButtonIndex ?? -1;
     }
     const lastHand = session.hands[session.hands.length - 1];
     const prevButton = lastHand?.buttonPlayerIndex ?? 0;
@@ -212,6 +213,13 @@ export default function PlayPage() {
         return;
       }
       setSession(json.data);
+      // BTN選択中のプレイヤーが離脱した場合、選択解除
+      if (selectedButtonIndex !== null) {
+        const selectedId = players[selectedButtonIndex]?.id;
+        if (selectedId === playerId) {
+          setSelectedButtonIndex(null);
+        }
+      }
     } catch {
       setError(MESSAGES.unexpectedError);
     } finally {
@@ -240,6 +248,55 @@ export default function PlayPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // --- プレイヤー並べ替え ---
+  const reorderPlayersApi = async (playerIds: readonly string[]) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerIds }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      // BTN選択中ならプレイヤーIDベースで新しいインデックスに追従
+      if (selectedButtonIndex !== null) {
+        const selectedPlayerId = players[selectedButtonIndex]?.id;
+        if (selectedPlayerId) {
+          const newIndex = json.data.players.findIndex((p) => p.id === selectedPlayerId);
+          setSelectedButtonIndex(newIndex >= 0 ? newIndex : null);
+        }
+      }
+      setSession(json.data);
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleMoveUp = async (index: number) => {
+    if (index <= 0) return;
+    const newOrder = [...players];
+    const temp = newOrder[index - 1]!;
+    newOrder[index - 1] = newOrder[index]!;
+    newOrder[index] = temp;
+    await reorderPlayersApi(newOrder.map((p) => p.id));
+  };
+
+  const handleMoveDown = async (index: number) => {
+    if (index >= players.length - 1) return;
+    const newOrder = [...players];
+    const temp = newOrder[index + 1]!;
+    newOrder[index + 1] = newOrder[index]!;
+    newOrder[index] = temp;
+    await reorderPlayersApi(newOrder.map((p) => p.id));
   };
 
   // --- ハンド開始（アクティブプレイヤーのみ） ---
@@ -618,34 +675,85 @@ export default function PlayPage() {
               </div>
             )}
 
-            {/* プレイヤー一覧（離脱/復帰ボタン付き） */}
+            {/* BTN選択案内（初回ハンドのみ） */}
+            {handCount === 0 && (
+              <p className="text-sm text-gray-400">{MESSAGES.selectButtonPlayer}</p>
+            )}
+
+            {/* プレイヤー一覧（並べ替え + BTN選択 + 離脱/復帰） */}
             <div className="flex w-full flex-col gap-2">
               {players.map((p, i) => {
-                const isButton = p.isActive && i === calcNextButtonIndex();
+                const isButton = handCount === 0
+                  ? p.isActive && i === selectedButtonIndex
+                  : p.isActive && i === calcNextButtonIndex();
                 return (
                   <div
                     key={p.id}
                     className={`flex items-center justify-between rounded-lg px-3 py-2 ${
                       p.isActive ? "bg-white/5" : "bg-white/[0.02] opacity-50"
+                    } ${isButton ? "ring-2 ring-poker-gold" : ""} ${
+                      handCount === 0 && p.isActive ? "cursor-pointer" : ""
                     }`}
+                    onClick={() => {
+                      if (handCount === 0 && p.isActive) {
+                        setSelectedButtonIndex(i);
+                      }
+                    }}
                   >
-                    <span
-                      className={`text-sm ${
-                        !p.isActive
-                          ? "text-gray-500 line-through"
-                          : isButton
-                            ? "font-bold text-poker-gold"
-                            : "text-gray-300"
-                      }`}
-                    >
-                      {i + 1}. {p.name}
-                      {isButton ? " (BTN)" : ""}
-                      {!p.isActive ? " (離脱中)" : ""}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {/* 並べ替え矢印 */}
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleMoveUp(i); }}
+                          disabled={i === 0 || isSubmitting}
+                          className="text-xs text-gray-400 hover:text-white disabled:opacity-20"
+                          aria-label={`${p.name}を上へ`}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleMoveDown(i); }}
+                          disabled={i === players.length - 1 || isSubmitting}
+                          className="text-xs text-gray-400 hover:text-white disabled:opacity-20"
+                          aria-label={`${p.name}を下へ`}
+                        >
+                          ▼
+                        </button>
+                      </div>
+
+                      {/* BTN選択インジケータ（初回ハンドのみ） */}
+                      {handCount === 0 && p.isActive && (
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                          isButton
+                            ? "border-poker-gold bg-poker-gold"
+                            : "border-gray-500"
+                        }`}>
+                          {isButton && <span className="text-xs text-black">✓</span>}
+                        </span>
+                      )}
+
+                      <span
+                        className={`text-sm ${
+                          !p.isActive
+                            ? "text-gray-500 line-through"
+                            : isButton
+                              ? "font-bold text-poker-gold"
+                              : "text-gray-300"
+                        }`}
+                      >
+                        {i + 1}. {p.name}
+                        {isButton ? " (BTN)" : ""}
+                        {!p.isActive ? " (離脱中)" : ""}
+                      </span>
+                    </div>
+
+                    {/* 離脱/復帰ボタン */}
                     {p.isActive ? (
                       <button
                         type="button"
-                        onClick={() => handlePlayerDepart(p.id)}
+                        onClick={(e) => { e.stopPropagation(); void handlePlayerDepart(p.id); }}
                         disabled={activePlayers.length <= 2 || isSubmitting}
                         className="text-xs text-gray-400 transition-colors hover:text-red-400 disabled:opacity-30"
                       >
@@ -654,7 +762,7 @@ export default function PlayPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => handlePlayerReturn(p.id)}
+                        onClick={(e) => { e.stopPropagation(); void handlePlayerReturn(p.id); }}
                         disabled={isSubmitting}
                         className="text-xs text-gray-400 transition-colors hover:text-green-400"
                       >
@@ -690,7 +798,11 @@ export default function PlayPage() {
             <button
               type="button"
               onClick={startHand}
-              disabled={isSubmitting || activePlayers.length < 2}
+              disabled={
+                isSubmitting ||
+                activePlayers.length < 2 ||
+                (handCount === 0 && selectedButtonIndex === null)
+              }
               className="w-full rounded-lg bg-poker-gold px-6 py-4 text-lg font-bold text-black transition-all hover:bg-yellow-500 disabled:opacity-50"
             >
               {isSubmitting ? "準備中..." : "カードを配る"}

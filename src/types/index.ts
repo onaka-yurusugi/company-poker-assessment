@@ -25,6 +25,8 @@ export type {
   GetSessionResponse,
   AddPlayerRequest,
   AddPlayerResponse,
+  ReorderPlayersRequest,
+  ReorderPlayersResponse,
   UpdatePlayerRequest,
   UpdatePlayerResponse,
   CreateHandRequest,

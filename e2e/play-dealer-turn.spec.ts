@@ -19,6 +19,7 @@ test.describe("dealer-turn フェーズ", () => {
 
     // hand-start
     await expect(page.getByText("ゲーム開始")).toBeVisible();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
     // Bob: intro → cards → action → turn-complete (BTNの次 = 最初に行動)

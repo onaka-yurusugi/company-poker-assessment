@@ -63,6 +63,12 @@ export type DiagnoseResponse = {
   readonly results: Readonly<Record<string, DiagnosisResult>>;
 };
 
+// PUT /api/sessions/[sessionId]/players/reorder
+export type ReorderPlayersRequest = {
+  readonly playerIds: readonly string[];
+};
+export type ReorderPlayersResponse = Session;
+
 // PATCH /api/sessions/[sessionId]/players/[playerId]
 export type UpdatePlayerRequest = {
   readonly isActive: boolean;

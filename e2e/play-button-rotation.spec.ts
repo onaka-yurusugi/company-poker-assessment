@@ -17,8 +17,9 @@ test.describe("ボタンポジションのローテーション", () => {
       await setupApiMocks(page, session);
       await page.goto(`/play/${session.id}`);
 
-      // hand-start: BTN表示の確認
+      // hand-start: BTN選択
       await expect(page.getByText("ゲーム開始")).toBeVisible();
+      await page.getByText("1. Alice").click();
       await expect(page.getByText("1. Alice (BTN)")).toBeVisible();
       await expect(page.getByText("2. Bob")).toBeVisible();
 
@@ -38,6 +39,7 @@ test.describe("ボタンポジションのローテーション", () => {
       // === Hand 1 完走 ===
       await expect(page.getByText("ゲーム開始")).toBeVisible();
       await page.getByRole("button", { name: "5回", exact: true }).click();
+      await page.getByText("1. Alice").click();
       await page.getByRole("button", { name: "カードを配る" }).click();
 
       // Bob → Alice (preflop)
@@ -71,8 +73,9 @@ test.describe("ボタンポジションのローテーション", () => {
       await setupApiMocks(page, session);
       await page.goto(`/play/${session.id}`);
 
-      // hand-start: BTN表示
+      // hand-start: BTN選択
       await expect(page.getByText("ゲーム開始")).toBeVisible();
+      await page.getByText("1. Alice").click();
       await expect(page.getByText("1. Alice (BTN)")).toBeVisible();
       await expect(page.getByText("2. Bob")).toBeVisible();
       await expect(page.getByText("3. Charlie")).toBeVisible();
@@ -125,6 +128,7 @@ test.describe("ボタンポジションのローテーション", () => {
       // === Hand 1 ===
       await expect(page.getByText("ゲーム開始")).toBeVisible();
       await page.getByRole("button", { name: "5回", exact: true }).click();
+      await page.getByText("1. Alice").click();
       await page.getByRole("button", { name: "カードを配る" }).click();
 
       // Bob → Charlie → Alice (preflop) — Bobがfoldしてすぐ終了
@@ -166,6 +170,7 @@ test.describe("ボタンポジションのローテーション", () => {
     // === Hand 1: BTN=Alice(index 0) ===
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "5回", exact: true }).click();
+    await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
     // プリフロップ: Bob → Alice

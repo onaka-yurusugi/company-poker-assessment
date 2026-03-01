@@ -100,6 +100,28 @@ export async function setupApiMocks(
     });
   });
 
+  // --- PUT /api/sessions/{id}/players/reorder (並べ替え) ---
+  await page.route(`**/api/sessions/${state.id}/players/reorder`, async (route: Route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    const body = route.request().postDataJSON() as { playerIds: readonly string[] };
+    const playerMap = new Map(state.players.map((p) => [p.id, p]));
+    const reordered: Player[] = [];
+    for (let i = 0; i < body.playerIds.length; i++) {
+      const pid = body.playerIds[i];
+      if (!pid) continue;
+      const player = playerMap.get(pid);
+      if (player) {
+        reordered.push({ ...player, seatNumber: i + 1 });
+      }
+    }
+    state.players = reordered;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(successJson(toSession(state))),
+    });
+  });
+
   // --- POST /api/sessions/{id}/diagnose (診断実行) ---
   // NOTE: /diagnose を /hands/* の前に登録（パスの曖昧さ回避）
   await page.route(`**/api/sessions/${state.id}/diagnose`, async (route: Route) => {
