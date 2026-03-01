@@ -22,6 +22,7 @@ export type PlayerHand = {
 export type Hand = {
   readonly id: string;
   readonly handNumber: number;
+  readonly buttonPlayerIndex: number;
   readonly communityCards: readonly Card[];
   readonly playerHands: readonly PlayerHand[];
   readonly actions: readonly Action[];

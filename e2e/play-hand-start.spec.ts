@@ -48,8 +48,8 @@ test.describe("hand-start フェーズ", () => {
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // player-intro: 最初のプレイヤー
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    // player-intro: BTN(Alice)の次のプレイヤー = Bob
+    await expect(page.getByText("Bobさん")).toBeVisible();
     await expect(page.getByText("あなたの番です")).toBeVisible();
     await expect(page.getByRole("button", { name: "OK、準備できました" })).toBeVisible();
   });

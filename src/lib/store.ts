@@ -105,6 +105,7 @@ export const addPlayer = async (
 export const createHand = async (
   sessionId: string,
   playerIds: readonly string[],
+  buttonPlayerIndex: number,
   gamePhase?: PersistedGamePhase,
   totalHands?: number
 ): Promise<Session | undefined> => {
@@ -121,6 +122,7 @@ export const createHand = async (
   const hand = {
     id: nanoid(),
     handNumber,
+    buttonPlayerIndex,
     communityCards: [],
     playerHands,
     actions: [],
