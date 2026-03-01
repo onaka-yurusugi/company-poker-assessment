@@ -17,6 +17,7 @@ type Player = {
   readonly name: string;
   readonly seatNumber: number;
   readonly joinedAt: string;
+  readonly isActive: boolean;
 };
 
 type Action = {
@@ -112,6 +113,7 @@ export function createMockPlayer(overrides?: Partial<Player>): Player {
     seatNumber: counter,
     joinedAt: new Date().toISOString(),
     ...overrides,
+    isActive: overrides?.isActive ?? true,
   };
 }
 

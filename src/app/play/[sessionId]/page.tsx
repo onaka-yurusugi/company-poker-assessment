@@ -17,8 +17,9 @@ import type {
 import CardSelector from "@/components/player/CardSelector";
 import PlayingCard from "@/components/shared/PlayingCard";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
+import PlayerAddForm from "@/components/play/PlayerAddForm";
 import { ACTION_DISPLAY_MAP } from "@/constants/poker";
-import { STREET_LABELS } from "@/constants/ui";
+import { STREET_LABELS, MESSAGES, BUTTON_LABELS } from "@/constants/ui";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PlayReview from "@/components/play/PlayReview";
 import {
@@ -116,6 +117,11 @@ export default function PlayPage() {
   }, [fetchSession, setTotalHands]);
 
   const players: readonly Player[] = session?.players ?? [];
+  const activePlayers = useMemo(
+    () => players.filter((p) => p.isActive),
+    [players]
+  );
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
 
   // 現在のハンド
   const currentHand: Hand | undefined = useMemo(() => {
@@ -149,13 +155,13 @@ export default function PlayPage() {
     [currentHand]
   );
 
-  // フォールドしていないアクティブプレイヤーのindexリスト
+  // アクティブかつフォールドしていないプレイヤーのindexリスト
   const activePlayerIndices = useMemo(() => {
     return players
       .map((_, i) => i)
       .filter((i) => {
         const player = players[i];
-        return player && !foldedPlayerIds.has(player.id);
+        return player && player.isActive && !foldedPlayerIds.has(player.id);
       });
   }, [players, foldedPlayerIds]);
 
@@ -175,23 +181,79 @@ export default function PlayPage() {
     [activePlayerIndices, playersToAct]
   );
 
-  // --- ボタンポジション計算 ---
+  // --- ボタンポジション計算（アクティブプレイヤーのみ循環） ---
   const calcNextButtonIndex = (): number => {
-    if (!session || session.hands.length === 0) return 0;
+    if (!session || session.hands.length === 0) {
+      return players.findIndex((p) => p.isActive);
+    }
     const lastHand = session.hands[session.hands.length - 1];
     const prevButton = lastHand?.buttonPlayerIndex ?? 0;
-    return (prevButton + 1) % players.length;
+    for (let offset = 1; offset <= players.length; offset++) {
+      const idx = (prevButton + offset) % players.length;
+      const player = players[idx];
+      if (player?.isActive) return idx;
+    }
+    return 0;
   };
 
-  // --- ハンド開始 ---
+  // --- プレイヤー離脱 ---
+  const handlePlayerDepart = async (playerId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/${playerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      setSession(json.data);
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- プレイヤー復帰 ---
+  const handlePlayerReturn = async (playerId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/players/${playerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true }),
+      });
+      const json = (await res.json()) as ApiResponse<Session>;
+      if (!json.success) {
+        setError(json.error);
+        return;
+      }
+      setSession(json.data);
+    } catch {
+      setError(MESSAGES.unexpectedError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- ハンド開始（アクティブプレイヤーのみ） ---
   const startHand = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      const playerIds = players.map((p) => p.id);
+      const playerIds = activePlayers.map((p) => p.id);
       const buttonPlayerIndex = calcNextButtonIndex();
-      const allIndices = players.map((_, i) => i);
-      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonPlayerIndex, allIndices, players.length) ?? 0;
+      const activeIndices = players
+        .map((p, i) => ({ player: p, index: i }))
+        .filter(({ player }) => player.isActive)
+        .map(({ index }) => index);
+      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonPlayerIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
       const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",
@@ -210,7 +272,8 @@ export default function PlayPage() {
       setHandCount((c) => c + 1);
       setFoldedPlayerIds(new Set());
       setCommunityCards([]);
-      setPlayersToAct(new Set(players.map((_, i) => i)));
+      setShowAddPlayer(false);
+      setPlayersToAct(new Set(activeIndices));
       setPhase({ step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" });
     } catch {
       setError("ハンドの開始に失敗しました");
@@ -511,7 +574,7 @@ export default function PlayPage() {
           </span>
         )}
         <span className="text-sm font-medium text-poker-gold">
-          {players.length}人参加
+          {activePlayers.length}人参加
         </span>
       </div>
 
@@ -555,21 +618,79 @@ export default function PlayPage() {
               </div>
             )}
 
-            <div className="flex flex-col gap-1 text-sm text-gray-300">
+            {/* プレイヤー一覧（離脱/復帰ボタン付き） */}
+            <div className="flex w-full flex-col gap-2">
               {players.map((p, i) => {
-                const isButton = i === calcNextButtonIndex();
+                const isButton = p.isActive && i === calcNextButtonIndex();
                 return (
-                  <span key={p.id} className={isButton ? "font-bold text-poker-gold" : ""}>
-                    {i + 1}. {p.name}{isButton ? " (BTN)" : ""}
-                  </span>
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                      p.isActive ? "bg-white/5" : "bg-white/[0.02] opacity-50"
+                    }`}
+                  >
+                    <span
+                      className={`text-sm ${
+                        !p.isActive
+                          ? "text-gray-500 line-through"
+                          : isButton
+                            ? "font-bold text-poker-gold"
+                            : "text-gray-300"
+                      }`}
+                    >
+                      {i + 1}. {p.name}
+                      {isButton ? " (BTN)" : ""}
+                      {!p.isActive ? " (離脱中)" : ""}
+                    </span>
+                    {p.isActive ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePlayerDepart(p.id)}
+                        disabled={activePlayers.length <= 2 || isSubmitting}
+                        className="text-xs text-gray-400 transition-colors hover:text-red-400 disabled:opacity-30"
+                      >
+                        {BUTTON_LABELS.departPlayer}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handlePlayerReturn(p.id)}
+                        disabled={isSubmitting}
+                        className="text-xs text-gray-400 transition-colors hover:text-green-400"
+                      >
+                        {BUTTON_LABELS.returnPlayer}
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
 
+            {/* プレイヤー追加エリア */}
+            {showAddPlayer ? (
+              <PlayerAddForm
+                sessionId={sessionId}
+                existingPlayers={players}
+                onAdded={(updatedSession) => {
+                  setSession(updatedSession);
+                  setShowAddPlayer(false);
+                }}
+                onCancel={() => setShowAddPlayer(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAddPlayer(true)}
+                className="w-full rounded-lg border-2 border-dashed border-gray-600 px-4 py-3 text-sm text-gray-400 transition-colors hover:border-poker-gold/50 hover:text-poker-gold"
+              >
+                + {BUTTON_LABELS.addPlayer}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={startHand}
-              disabled={isSubmitting}
+              disabled={isSubmitting || activePlayers.length < 2}
               className="w-full rounded-lg bg-poker-gold px-6 py-4 text-lg font-bold text-black transition-all hover:bg-yellow-500 disabled:opacity-50"
             >
               {isSubmitting ? "準備中..." : "カードを配る"}
@@ -952,18 +1073,20 @@ export default function PlayPage() {
             <p className="text-gray-300">各プレイヤーの結果を確認してください</p>
 
             <div className="flex w-full flex-col gap-3">
-              {players.map((player) => (
-                <a
-                  key={player.id}
-                  href={`/result/${sessionId}/${player.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-lg border border-white/20 bg-white/5 px-4 py-4 text-left transition-all hover:bg-white/10"
-                >
-                  <span className="text-lg font-medium text-white">{player.name}</span>
-                  <span className="text-sm text-poker-gold">結果を見る →</span>
-                </a>
-              ))}
+              {players
+                .filter((player) => session.diagnosisResults[player.id])
+                .map((player) => (
+                  <a
+                    key={player.id}
+                    href={`/result/${sessionId}/${player.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded-lg border border-white/20 bg-white/5 px-4 py-4 text-left transition-all hover:bg-white/10"
+                  >
+                    <span className="text-lg font-medium text-white">{player.name}</span>
+                    <span className="text-sm text-poker-gold">結果を見る →</span>
+                  </a>
+                ))}
             </div>
 
             <button

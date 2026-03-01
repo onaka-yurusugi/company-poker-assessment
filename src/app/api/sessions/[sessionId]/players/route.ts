@@ -27,8 +27,8 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
       return errorResponse(MESSAGES.seatRequired);
     }
 
-    // 座席の重複チェック
-    const seatTaken = session.players.some((p) => p.seatNumber === body.seatNumber);
+    // 座席の重複チェック（アクティブプレイヤーのみ対象）
+    const seatTaken = session.players.some((p) => p.isActive && p.seatNumber === body.seatNumber);
     if (seatTaken) {
       return errorResponse(MESSAGES.seatTaken);
     }

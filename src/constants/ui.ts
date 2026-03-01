@@ -45,6 +45,7 @@ export const MESSAGES = {
   nameRequired: "名前を入力してください",
   seatRequired: "座席番号を選択してください",
   seatTaken: "その座席は既に使用されています",
+  minimumPlayersRequired: "最低2人のアクティブプレイヤーが必要です",
 } as const;
 
 // 管理者画面
@@ -79,4 +80,7 @@ export const BUTTON_LABELS = {
   completeHand: "ハンド完了",
   runDiagnosis: "診断を実行",
   backToTop: "トップに戻る",
+  departPlayer: "離脱",
+  returnPlayer: "復帰",
+  addPlayer: "プレイヤーを追加",
 } as const;

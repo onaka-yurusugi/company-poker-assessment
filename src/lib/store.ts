@@ -18,7 +18,15 @@ const COLLECTION = "sessions";
 const sessionsCollection = () => getDb().collection(COLLECTION);
 const sessionDoc = (sessionId: string) => sessionsCollection().doc(sessionId);
 
-const toSession = (data: FirebaseFirestore.DocumentData): Session => data as Session;
+const toSession = (data: FirebaseFirestore.DocumentData): Session => {
+  const raw = data as Session;
+  // 後方互換: isActive フィールドがない既存データは active 扱い
+  const players = raw.players.map((p) => ({
+    ...p,
+    isActive: (p as { isActive?: boolean }).isActive ?? true,
+  }));
+  return { ...raw, players };
+};
 
 // --- 内部ヘルパー ---
 
@@ -95,9 +103,30 @@ export const addPlayer = async (
     name,
     seatNumber,
     joinedAt: new Date().toISOString(),
+    isActive: true,
   };
   const updatedPlayers = [...session.players, newPlayer];
   await sessionDoc(sessionId).update({ players: updatedPlayers });
+
+  return { ...session, players: updatedPlayers };
+};
+
+export const updatePlayerActive = async (
+  sessionId: string,
+  playerId: string,
+  isActive: boolean
+): Promise<Session | undefined> => {
+  const doc = await sessionDoc(sessionId).get();
+  if (!doc.exists) return undefined;
+
+  const session = toSession(doc.data()!);
+  const playerIndex = session.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) return undefined;
+
+  const updatedPlayers = session.players.map((p) =>
+    p.id === playerId ? { ...p, isActive } : p
+  );
+  await sessionDoc(sessionId).update({ players: serializeForFirestore(updatedPlayers) });
 
   return { ...session, players: updatedPlayers };
 };
