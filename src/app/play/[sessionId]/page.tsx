@@ -130,7 +130,8 @@ export default function PlayPage() {
     return session.hands.find((h) => h.id === currentHandId);
   }, [session, currentHandId]);
 
-  // ディーラー用: 全使用済みカード（他プレイヤーのホールカード含む）
+  // 全使用済みカード（全プレイヤーのホールカード + コミュニティカード）
+  // プレイヤーのcard-inputおよびディーラーターンで使用
   const allUsedCards: readonly Card[] = useMemo(() => {
     if (!currentHand) return [];
     const cards: Card[] = [];
@@ -897,11 +898,11 @@ export default function PlayPage() {
                 : "カードをタップすると取り消せます"}
             </p>
 
-            {/* カードセレクター - プレイヤーには自分の選択中カードのみdisable */}
+            {/* カードセレクター - 他プレイヤーの使用済みカード + 自分の選択中カードをdisable */}
             {selectedCards.length < 2 && (
               <CardSelector
                 onSelect={handleCardSelect}
-                disabledCards={selectedCards}
+                disabledCards={[...allUsedCards, ...selectedCards]}
               />
             )}
 
