@@ -130,7 +130,8 @@ export default function PlayPage() {
     return session.hands.find((h) => h.id === currentHandId);
   }, [session, currentHandId]);
 
-  // ディーラー用: 全使用済みカード（他プレイヤーのホールカード含む）
+  // 全使用済みカード（全プレイヤーのホールカード + コミュニティカード）
+  // プレイヤーのcard-inputおよびディーラーターンで使用
   const allUsedCards: readonly Card[] = useMemo(() => {
     if (!currentHand) return [];
     const cards: Card[] = [];
