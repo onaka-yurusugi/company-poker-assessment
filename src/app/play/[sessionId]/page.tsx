@@ -897,11 +897,11 @@ export default function PlayPage() {
                 : "カードをタップすると取り消せます"}
             </p>
 
-            {/* カードセレクター - プレイヤーには自分の選択中カードのみdisable */}
+            {/* カードセレクター - 他プレイヤーの使用済みカード + 自分の選択中カードをdisable */}
             {selectedCards.length < 2 && (
               <CardSelector
                 onSelect={handleCardSelect}
-                disabledCards={selectedCards}
+                disabledCards={[...allUsedCards, ...selectedCards]}
               />
             )}
 
