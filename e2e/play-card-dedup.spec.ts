@@ -2,13 +2,14 @@ import { test, expect } from "./fixtures/test-fixtures";
 import { setupApiMocks } from "./fixtures/api-mocker";
 import { createTwoPlayerSession } from "./fixtures/mock-data";
 import { selectCard } from "./helpers/card-selector";
+import { playPreflopTurn, goThroughPlayerIntro } from "./helpers/play-flow";
 
 test.describe("カード重複防止", () => {
   /**
    * 共通セットアップ:
-   * 2人プレイ → hand-start → BTN選択 → カードを配る → Bob(index 1)のplayer-intro → card-input
-   * Bob が ♠A, ♥K を選択して確定 → action(チェック) → turn-complete
-   * → Alice(index 0)のplayer-intro → card-input まで進める
+   * 2人プレイ → hand-start → BTN選択 → カードを配る
+   * → Bob のプリフロップターン(♠A, ♥K, チェック)
+   * → Alice のcard-input フェーズまで進める
    */
   async function setupToSecondPlayerCardInput(page: import("@playwright/test").Page) {
     const { session } = createTwoPlayerSession();
@@ -20,29 +21,16 @@ test.describe("カード重複防止", () => {
     await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // Bob の player-intro
-    await expect(page.getByText("Bobさん")).toBeVisible();
-    await page.getByRole("button", { name: "OK、準備できました" }).click();
+    // Bob のプリフロップターン全体（intro → card-input → action → turn-complete）
+    await playPreflopTurn(
+      page, "Bob",
+      { suit: "spade", rank: "A" },
+      { suit: "heart", rank: "K" },
+      "チェック",
+    );
 
-    // Bob の card-input: ♠A, ♥K を選択
-    await expect(page.getByText("Bobさんのカード")).toBeVisible();
-    await selectCard(page, "spade", "A");
-    await selectCard(page, "heart", "K");
-    await page.getByRole("button", { name: /カードを確定/ }).click();
-
-    // Bob の action-select: チェック
-    await expect(page.getByText("アクションを選択してください")).toBeVisible();
-    await page.getByRole("button", { name: "チェック" }).click();
-
-    // turn-complete → Alice へ
-    await expect(page.getByText("記録完了！")).toBeVisible();
-    await page.getByRole("button", { name: "次の人の準備ができました" }).click();
-
-    // Alice の player-intro
-    await expect(page.getByText("Aliceさん")).toBeVisible();
-    await page.getByRole("button", { name: "OK、準備できました" }).click();
-
-    // Alice の card-input フェーズ
+    // Alice の player-intro → card-input フェーズへ
+    await goThroughPlayerIntro(page, "Alice");
     await expect(page.getByText("Aliceさんのカード")).toBeVisible();
   }
 
