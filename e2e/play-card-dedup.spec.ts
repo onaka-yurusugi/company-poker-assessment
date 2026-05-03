@@ -7,9 +7,9 @@ import { playPreflopTurn, goThroughPlayerIntro } from "./helpers/play-flow";
 test.describe("カード重複防止", () => {
   /**
    * 共通セットアップ:
-   * 2人プレイ → hand-start → BTN選択 → カードを配る
-   * → Bob のプリフロップターン(♠A, ♥K, チェック)
-   * → Alice のcard-input フェーズまで進める
+   * 2人プレイ → hand-start → BTN選択(Alice) → カードを配る
+   * → Alice(BTN=SB)のプリフロップターン(♠A, ♥K, チェック)
+   * → Bob のcard-input フェーズまで進める
    */
   async function setupToSecondPlayerCardInput(page: import("@playwright/test").Page) {
     const { session } = createTwoPlayerSession();
@@ -21,23 +21,23 @@ test.describe("カード重複防止", () => {
     await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // Bob のプリフロップターン全体（intro → card-input → action → turn-complete）
+    // Alice のプリフロップターン全体（intro → card-input → action → turn-complete）
     await playPreflopTurn(
-      page, "Bob",
+      page, "Alice",
       { suit: "spade", rank: "A" },
       { suit: "heart", rank: "K" },
       "チェック",
     );
 
-    // Alice の player-intro → card-input フェーズへ
-    await goThroughPlayerIntro(page, "Alice");
-    await expect(page.getByText("Aliceさんのカード")).toBeVisible();
+    // Bob の player-intro → card-input フェーズへ
+    await goThroughPlayerIntro(page, "Bob");
+    await expect(page.getByText("Bobさんのカード")).toBeVisible();
   }
 
   test("前のプレイヤーが使用したカードはタップしても選択されない", async ({ page }) => {
     await setupToSecondPlayerCardInput(page);
 
-    // Bob が使った ♠A をタップ → 選択されないことを検証
+    // Alice が使った ♠A をタップ → 選択されないことを検証
     await selectCard(page, "spade", "A");
 
     // まだ「1枚目を選択」の状態のまま = 選択されていない
@@ -47,7 +47,7 @@ test.describe("カード重複防止", () => {
   test("前のプレイヤーが使用したカード（2枚目）もタップしても選択されない", async ({ page }) => {
     await setupToSecondPlayerCardInput(page);
 
-    // Bob が使った ♥K をタップ → 選択されないことを検証
+    // Alice が使った ♥K をタップ → 選択されないことを検証
     await selectCard(page, "heart", "K");
 
     // まだ「1枚目を選択」の状態のまま

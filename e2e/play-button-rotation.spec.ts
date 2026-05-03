@@ -12,7 +12,7 @@ import {
 
 test.describe("ボタンポジションのローテーション", () => {
   test.describe("2人プレイヤー", () => {
-    test("Hand 1: BTN=Alice → Bobが最初に行動", async ({ page }) => {
+    test("Hand 1: BTN=Alice → Aliceが最初に行動（ヘッズアップ）", async ({ page }) => {
       const { session } = createTwoPlayerSession();
       await setupApiMocks(page, session);
       await page.goto(`/play/${session.id}`);
@@ -25,12 +25,12 @@ test.describe("ボタンポジションのローテーション", () => {
 
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Bobが最初に行動（BTNの次）
-      await expect(page.getByText("Bobさん")).toBeVisible();
+      // ヘッズアップ プリフロップ: BTN(=SB) が最初に行動
+      await expect(page.getByText("Aliceさん")).toBeVisible();
       await expect(page.getByText("あなたの番です")).toBeVisible();
     });
 
-    test("Hand 2: BTN=Bob → Aliceが最初に行動", async ({ page }) => {
+    test("Hand 2: BTN=Bob → Bobが最初に行動（ヘッズアップ）", async ({ page }) => {
       test.slow();
       const { session } = createTwoPlayerSession();
       await setupApiMocks(page, session);
@@ -42,9 +42,9 @@ test.describe("ボタンポジションのローテーション", () => {
       await page.getByText("1. Alice").click();
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Bob → Alice (preflop)
-      await goThroughPlayerIntro(page, "Bob");
-      await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+      // ヘッズアップ プリフロップ: Alice(BTN) → Bob
+      await goThroughPlayerIntro(page, "Alice");
+      await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
       await chooseAction(page, "フォールド");
       await proceedFromTurnComplete(page);
 
@@ -60,14 +60,14 @@ test.describe("ボタンポジションのローテーション", () => {
 
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Aliceが最初に行動（BTNの次）
-      await expect(page.getByText("Aliceさん")).toBeVisible();
+      // ヘッズアップ プリフロップ: BTN(Bob)が最初に行動
+      await expect(page.getByText("Bobさん")).toBeVisible();
       await expect(page.getByText("あなたの番です")).toBeVisible();
     });
   });
 
   test.describe("3人プレイヤー", () => {
-    test("Hand 1: BTN=Alice → Bobが最初に行動、3人全員が順番に行動", async ({ page }) => {
+    test("Hand 1: BTN=Alice → プリフロップはAlice(UTG=BTN)から開始、ポストフロップはBob(SB)から", async ({ page }) => {
       test.slow();
       const { session } = createThreePlayerSession();
       await setupApiMocks(page, session);
@@ -82,7 +82,12 @@ test.describe("ボタンポジションのローテーション", () => {
 
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Bob(index 1) → Charlie(index 2) → Alice(index 0) の順
+      // プリフロップ: Alice(BTN=UTG) → Bob(SB) → Charlie(BB) の順
+      await goThroughPlayerIntro(page, "Alice");
+      await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
+      await chooseAction(page, "チェック");
+      await proceedFromTurnComplete(page);
+
       await goThroughPlayerIntro(page, "Bob");
       await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
       await chooseAction(page, "チェック");
@@ -90,11 +95,6 @@ test.describe("ボタンポジションのローテーション", () => {
 
       await goThroughPlayerIntro(page, "Charlie");
       await inputHoleCards(page, { suit: "heart", rank: "10" }, { suit: "spade", rank: "9" });
-      await chooseAction(page, "チェック");
-      await proceedFromTurnComplete(page);
-
-      await goThroughPlayerIntro(page, "Alice");
-      await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
       await chooseAction(page, "チェック");
       await proceedFromTurnComplete(page);
 
@@ -110,7 +110,7 @@ test.describe("ボタンポジションのローテーション", () => {
         "フロップ",
       );
 
-      // ポストフロップもBob → Charlie → Aliceの順
+      // ポストフロップは Bob(SB) → Charlie(BB) → Alice(BTN) の順
       await playPostflopTurn(page, "Bob", "チェック");
       await playPostflopTurn(page, "Charlie", "チェック");
       await playPostflopTurn(page, "Alice", "チェック");
@@ -131,14 +131,14 @@ test.describe("ボタンポジションのローテーション", () => {
       await page.getByText("1. Alice").click();
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Bob → Charlie → Alice (preflop) — Bobがfoldしてすぐ終了
-      await goThroughPlayerIntro(page, "Bob");
-      await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+      // プリフロップ: Alice(BTN=UTG) → Bob → Charlie — 全員foldしてすぐ終了
+      await goThroughPlayerIntro(page, "Alice");
+      await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
       await chooseAction(page, "フォールド");
       await proceedFromTurnComplete(page);
 
-      await goThroughPlayerIntro(page, "Charlie");
-      await inputHoleCards(page, { suit: "heart", rank: "10" }, { suit: "spade", rank: "9" });
+      await goThroughPlayerIntro(page, "Bob");
+      await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
       await chooseAction(page, "フォールド");
       await proceedFromTurnComplete(page);
 
@@ -155,8 +155,8 @@ test.describe("ボタンポジションのローテーション", () => {
 
       await page.getByRole("button", { name: "カードを配る" }).click();
 
-      // Charlie(index 2)が最初に行動（BTN=Bob(index 1)の次）
-      await expect(page.getByText("Charlieさん")).toBeVisible();
+      // 3人プレイヤーではUTG=BTN自身、Bob(BTN)が最初に行動
+      await expect(page.getByText("Bobさん")).toBeVisible();
       await expect(page.getByText("あなたの番です")).toBeVisible();
     });
   });
@@ -173,14 +173,14 @@ test.describe("ボタンポジションのローテーション", () => {
     await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // プリフロップ: Bob → Alice
-    await goThroughPlayerIntro(page, "Bob");
-    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+    // ヘッズアップ プリフロップ: Alice(BTN=SB) → Bob(BB)
+    await goThroughPlayerIntro(page, "Alice");
+    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
-    await goThroughPlayerIntro(page, "Alice");
-    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
+    await goThroughPlayerIntro(page, "Bob");
+    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
