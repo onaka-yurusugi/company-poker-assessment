@@ -401,27 +401,13 @@ export default function PlayPage() {
       }
       setSession(json.data);
 
-      if (actionType === "fold") {
-        setFoldedPlayerIds((prev) => new Set([...prev, player.id]));
-        setPlayersToAct((prev) => {
-          const next = new Set(prev);
-          next.delete(playerIndex);
-          return next;
-        });
-      } else {
-        setPlayersToAct((prev) => {
-          const next = new Set(prev);
-          next.delete(playerIndex);
-          if (actionType === "raise") {
-            // レイズ時は他のアクティブプレイヤー全員にアクション権を付与
-            for (const idx of activePlayerIndices) {
-              if (idx !== playerIndex) {
-                next.add(idx);
-              }
-            }
-          }
-          return next;
-        });
+      // playersToAct と foldedPlayerIds は API レスポンスの最新ハンドから一元的に導出する。
+      // 増分更新だとレイズ時の活性プレイヤー集合がクロージャの古い値を参照する可能性があるため、
+      // 常に actions を真実とみなして再計算する。
+      const updatedHand = json.data.hands.find((h) => h.id === currentHandId);
+      if (updatedHand) {
+        setFoldedPlayerIds(deriveFoldedPlayerIds(updatedHand));
+        setPlayersToAct(derivePlayersToAct(updatedHand, street, json.data.players));
       }
 
       setSelectedCards([]);
@@ -468,7 +454,14 @@ export default function PlayPage() {
       }
       setSession(json.data);
       setCommunityCards([]);
-      setPlayersToAct(new Set(activePlayerIndices));
+
+      // 新しいストリートの開始時点では、アクティブ全員にアクション権を付与する。
+      // derivePlayersToAct は currentStreet の actions を再生するため、
+      // ここでは「該当ストリートに actions が無い状態」= 全アクティブが対象、と等価になる。
+      const updatedHand = json.data.hands.find((h) => h.id === currentHandId);
+      if (updatedHand) {
+        setPlayersToAct(derivePlayersToAct(updatedHand, street, json.data.players));
+      }
 
       // ボタンの次のアクティブプレイヤーからラウンド開始
       if (firstActive !== null && activePlayerIndices.length >= 2) {
