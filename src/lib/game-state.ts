@@ -137,7 +137,7 @@ export const getPreflopFirstActivePlayer = (
 
   const activeSet = new Set(activePlayerIndices);
   let activeFound = 0;
-  for (let offset = 1; offset <= playerCount * 2; offset++) {
+  for (let offset = 1; offset <= playerCount; offset++) {
     const idx = (buttonIndex + offset) % playerCount;
     if (activeSet.has(idx)) {
       activeFound++;
