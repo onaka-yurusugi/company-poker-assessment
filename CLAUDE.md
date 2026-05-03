@@ -79,6 +79,31 @@ hand-start → player-intro → card-input → action-select → turn-complete
 - `class` は原則不使用（`Error` 拡張など必要な場合を除く）
 - 型定義は `src/types/` に集約、`readonly` 修飾子を徹底使用
 
+## Git Workflow / マージ戦略
+
+### ブランチ運用
+
+`feature → staging → main` の3層フロー。
+
+- **feature ブランチ**: 新機能・バグ修正の作業ブランチ。base は `staging`。
+- **staging**: 検証用ブランチ。feature をここへマージしてから main へ流す。
+- **main**: 本番反映用。`staging` からのマージ専用。
+
+### マージ戦略（PR種別ごと）
+
+| PR種別 | base | head | マージ方式 |
+|---|---|---|---|
+| feature → staging | `staging` | `feature/*` `fix/*` 等 | **Squash merge** |
+| staging → main（リリース） | `main` | `staging` | **マージコミット**（squash 禁止） |
+| main → staging（追従） | `staging` | `main` | **マージコミット**（squash 禁止） |
+
+`staging ↔ main` 間で squash すると履歴が乖離してコンフリクトを誘発するため、必ずマージコミットを使う。
+
+### Claude Code 向け注意
+
+- feature ブランチから PR を作る時は `gh pr create --base staging` を必ず指定する（デフォルトの `main` ではない）。
+- `staging` 経由をスキップして main 直マージを行うと、後続の staging→main リリース PR でコンフリクトする。緊急 hotfix 等で main 直マージした場合は、すぐに `main → staging` 追従 PR を作成すること。
+
 ## Environment Variables
 
 ```
