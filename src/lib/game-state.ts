@@ -116,6 +116,37 @@ export const getFirstActivePlayerAfterButton = (
   return null;
 };
 
+/**
+ * プリフロップで最初に行動するプレイヤーのインデックスを返す。
+ * - 3人以上: SB と BB をスキップした次のアクティブプレイヤー（UTG）
+ * - ヘッズアップ（2人）: BTN（=SB）が最初に行動
+ */
+export const getPreflopFirstActivePlayer = (
+  buttonIndex: number,
+  activePlayerIndices: readonly number[],
+  playerCount: number
+): number | null => {
+  const activeCount = activePlayerIndices.length;
+  if (activeCount === 0) return null;
+  if (activeCount === 1) return activePlayerIndices[0] ?? null;
+  if (activeCount === 2) {
+    return activePlayerIndices.includes(buttonIndex)
+      ? buttonIndex
+      : (activePlayerIndices[0] ?? null);
+  }
+
+  const activeSet = new Set(activePlayerIndices);
+  let activeFound = 0;
+  for (let offset = 1; offset <= playerCount * 2; offset++) {
+    const idx = (buttonIndex + offset) % playerCount;
+    if (activeSet.has(idx)) {
+      activeFound++;
+      if (activeFound === 3) return idx;
+    }
+  }
+  return null;
+};
+
 /** GamePhaseからストリートを抽出する */
 export const getStreetFromPhase = (
   phase: { readonly step: string; readonly street?: Street }
