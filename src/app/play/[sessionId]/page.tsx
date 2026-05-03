@@ -27,6 +27,7 @@ import {
   deriveFoldedPlayerIds,
   derivePlayersToAct,
   getFirstActivePlayerAfterButton,
+  getPreflopFirstActivePlayer,
   getStreetFromPhase,
 } from "@/lib/game-state";
 
@@ -130,7 +131,8 @@ export default function PlayPage() {
     return session.hands.find((h) => h.id === currentHandId);
   }, [session, currentHandId]);
 
-  // ディーラー用: 全使用済みカード（他プレイヤーのホールカード含む）
+  // 全使用済みカード（全プレイヤーのホールカード + コミュニティカード）
+  // プレイヤーのcard-inputおよびディーラーターンで使用
   const allUsedCards: readonly Card[] = useMemo(() => {
     if (!currentHand) return [];
     const cards: Card[] = [];
@@ -306,7 +308,7 @@ export default function PlayPage() {
         .map((p, i) => ({ player: p, index: i }))
         .filter(({ player }) => player.isActive)
         .map(({ index }) => index);
-      const firstPlayerIndex = getFirstActivePlayerAfterButton(buttonIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
+      const firstPlayerIndex = getPreflopFirstActivePlayer(buttonIndex, activeIndices, players.length) ?? activeIndices[0] ?? 0;
       const nextPhase: PersistedGamePhase = { step: "player-intro", playerIndex: firstPlayerIndex, street: "preflop" };
       const res = await fetch(`/api/sessions/${sessionId}/hands`, {
         method: "POST",

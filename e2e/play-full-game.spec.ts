@@ -19,22 +19,22 @@ test.describe("統合テスト: 2人で1ハンド完走", () => {
     await page.goto(`/play/${session.id}`);
 
     // === hand-start ===
-    // Hand 1: BTN=Alice(index 0) → Bob(index 1)が先に行動
+    // Hand 1: BTN=Alice(index 0) → ヘッズアップでは BTN(=SB) が先に行動
     await expect(page.getByText("ゲーム開始")).toBeVisible();
     await page.getByRole("button", { name: "5回", exact: true }).click();
     await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
     // === プリフロップ ===
-    // Bob (BTNの次 = 最初に行動)
-    await goThroughPlayerIntro(page, "Bob");
-    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+    // Alice (BTN=SB = 最初に行動)
+    await goThroughPlayerIntro(page, "Alice");
+    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 
-    // Alice
-    await goThroughPlayerIntro(page, "Alice");
-    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
+    // Bob (BB)
+    await goThroughPlayerIntro(page, "Bob");
+    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
     await chooseAction(page, "チェック");
     await proceedFromTurnComplete(page);
 

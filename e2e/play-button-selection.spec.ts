@@ -67,8 +67,8 @@ test.describe("ボタンプレイヤー選択（初回ハンド）", () => {
     await page.getByText("2. Bob").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // BTN=Bob → Aliceが最初に行動
-    await expect(page.getByText("Aliceさん")).toBeVisible();
+    // ヘッズアップ プリフロップ: BTN(=SB)が最初に行動 → Bob
+    await expect(page.getByText("Bobさん")).toBeVisible();
     await expect(page.getByText("あなたの番です")).toBeVisible();
   });
 
@@ -84,9 +84,9 @@ test.describe("ボタンプレイヤー選択（初回ハンド）", () => {
     await page.getByText("1. Alice").click();
     await page.getByRole("button", { name: "カードを配る" }).click();
 
-    // Bob → fold で即完了
-    await goThroughPlayerIntro(page, "Bob");
-    await inputHoleCards(page, { suit: "diamond", rank: "Q" }, { suit: "club", rank: "J" });
+    // ヘッズアップ プリフロップ: Alice(BTN=SB) → fold で即完了
+    await goThroughPlayerIntro(page, "Alice");
+    await inputHoleCards(page, { suit: "spade", rank: "A" }, { suit: "heart", rank: "K" });
     await chooseAction(page, "フォールド");
     await proceedFromTurnComplete(page);
 
