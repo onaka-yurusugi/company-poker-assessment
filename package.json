@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "simulate": "tsx src/simulations/runner.ts",
+    "simulate:diagnose": "tsx --env-file=.env.local src/simulations/diagnose.ts",
     "test:e2e": "FIREBASE_PROJECT_ID=test FIREBASE_CLIENT_EMAIL=test@test.iam FIREBASE_PRIVATE_KEY='-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----' OPENAI_API_KEY=sk-test playwright test",
     "test:e2e:ui": "FIREBASE_PROJECT_ID=test FIREBASE_CLIENT_EMAIL=test@test.iam FIREBASE_PRIVATE_KEY='-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----' OPENAI_API_KEY=sk-test playwright test --ui"
   },
@@ -28,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
